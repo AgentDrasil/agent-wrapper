@@ -1,0 +1,49 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//tools:zig_build.bzl", "zig_build_libghostty")
+
+# Expose all source files required by the zig build
+filegroup(
+    name = "ghostty_sources",
+    srcs = glob(
+        ["ghostty/**/*"],
+        exclude = [
+            "ghostty/**/.*",          # Exclude hidden files
+            "ghostty/zig-out/**",     # Exclude build output
+            "ghostty/zig-cache/**",   # Exclude build cache
+        ],
+    ),
+)
+
+# Standard rules_zig rules (e.g. zig_library, zig_static_library) compile Zig code
+# directly using `zig build-lib` or `zig build-exe`, which bypasses `build.zig`.
+# However, Ghostty relies heavily on its custom `build.zig` to:
+#   1. Run code-generation scripts (like generating unicode tables, uucode tables, etc.)
+#   2. Automatically fetch and resolve external dependencies (e.g., SIMD libraries, 
+#      nerd fonts, etc.) specified in `build.zig.zon` via Zig's lazy dependency system.
+#
+# Because replicating this complex build, generation, and downloading setup in Bazel
+# would require thousands of lines of fragile configuration that would break whenever 
+# Ghostty updates, we use a custom `zig_build_libghostty` rule. This rule invokes `zig build` 
+# with `-Demit-lib-vt` hermetically under the hood using Bazel's resolved Zig toolchain.
+#
+# TODO(https://github.com/hermeticbuild/rules_zig/issues/231): wait for rule_zig to implement 
+# proper support for `zig build`.
+zig_build_libghostty(
+    name = "ghostty_vt_binary",
+    srcs = [":ghostty_sources"],
+)
+
+# Exposed cc_library consuming the built static archive and static headers
+cc_library(
+    name = "ghostty_vt",
+    srcs = [":ghostty_vt_binary"],
+    hdrs = glob(["ghostty/include/**/*.h"]),
+    includes = ["ghostty/include"],
+    defines = ["GHOSTTY_STATIC"],
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+    visibility = ["//visibility:public"],
+)

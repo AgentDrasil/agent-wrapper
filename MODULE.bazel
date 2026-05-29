@@ -7,13 +7,9 @@ module(
 bazel_dep(name = "rules_go", version = "0.60.0")
 bazel_dep(name = "gazelle", version = "0.43.0")
 bazel_dep(name = "rules_zig", version = "0.16.0")
-bazel_dep(name = "rules_cc",  version = "0.2.18")  # required by Bazel 9 (cc_library no longer builtin)
+bazel_dep(name = "rules_cc",  version = "0.2.18")
 
 # ── Go SDK ─────────────────────────────────────────────────────────────────────
-# go.mitchellh.com/libghostty declares `go 1.26.0` in its go.mod.
-# The host already has Go 1.26.3 (verified via `go version`), so we use it
-# directly. When rules_go ships a hermetic 1.26.x toolchain this can switch back
-# to go_sdk.download(version = "1.26.x").
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.26.3")
 
@@ -22,9 +18,7 @@ go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
     go_deps,
-    # github.com/creack/pty
     "com_github_creack_pty",
-    # go.mitchellh.com/libghostty (note: go. prefix → go_ in Gazelle)
     "com_mitchellh_go_libghostty",
 )
 

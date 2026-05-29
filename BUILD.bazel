@@ -2,10 +2,10 @@ load("@rules_go//go:def.bzl", "go_binary")
 load("@gazelle//:def.bzl", "gazelle")
 
 # Expose the ghostty cc_library at the root so external repos (like the
-# go_deps-fetched libghostty) can reference it via @@//out/ghostty:ghostty_vt.
+# go_deps-fetched libghostty) can reference it via @@//third_party:ghostty_vt.
 alias(
     name = "ghostty_vt",
-    actual = "//out/ghostty:ghostty_vt",
+    actual = "//third_party:ghostty_vt",
     visibility = ["//visibility:public"],
 )
 

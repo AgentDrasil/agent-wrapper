@@ -1,0 +1,7 @@
+# ── Bzlmod (required for MODULE.bazel) ────────────────────────────────────────
+common --enable_bzlmod
+
+# ── Cross-compilation configs ──────────────────────────────────────────────────
+# Usage: bazel build --config=linux_amd64 //:agent_wrapper
+build:linux_amd64 --platforms=@rules_go//go/toolchain:linux_amd64
+

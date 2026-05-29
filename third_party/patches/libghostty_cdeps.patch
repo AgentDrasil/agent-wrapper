@@ -1,0 +1,11 @@
+--- a/BUILD.bazel	2026-05-29 00:00:00.000000000 +0000
++++ b/BUILD.bazel	2026-05-29 00:00:00.000000000 +0000
+@@ -41,6 +41,8 @@
+         "types.go",
+     ],
+     cgo = True,
++    cdeps = ["@@//:ghostty_vt"],
++    copts = ["-DGHOSTTY_STATIC"],
+     importpath = "go.mitchellh.com/libghostty",
+     visibility = ["//visibility:public"],
+ )

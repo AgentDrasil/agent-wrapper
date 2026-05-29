@@ -1,0 +1,2 @@
+# Patch files for go_deps.module_override in MODULE.bazel.
+exports_files(["libghostty_cdeps.patch"])

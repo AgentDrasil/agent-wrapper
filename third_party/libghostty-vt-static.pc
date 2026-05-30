@@ -1,0 +1,10 @@
+prefix=${pcfiledir}
+exec_prefix=${prefix}
+libdir=${prefix}/../bazel-bin/third_party
+includedir=${prefix}/ghostty/include
+
+Name: libghostty-vt-static
+Description: Headless virtual terminal emulator library (static)
+Version: 0.1.0
+Libs: ${libdir}/libghostty-vt.a -lpthread -ldl -lm
+Cflags: -I${includedir} -DGHOSTTY_STATIC

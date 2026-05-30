@@ -1,3 +1,5 @@
+export PKG_CONFIG_PATH := justfile_directory() + "/third_party"
+
 # Update git submodules recursively
 submodule-update:
     git submodule update --init --recursive
@@ -12,6 +14,12 @@ build:
 
 # Clean all build artifacts, exported libraries, and Go build cache
 clean:
-    @echo "Cleaning build artifacts..."
-    rm -rf out agent-wrapper .zig-cache
-    go clean -cache
+    bazel clean
+
+# Format code with goimports
+fmt:
+    goimports -w -local "github.com/AgentDrasil/agent-wrapper" .
+
+# Run golangci-lint
+lint:
+    golangci-lint run

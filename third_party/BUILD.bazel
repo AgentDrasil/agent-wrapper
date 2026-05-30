@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//tools:zig_build.bzl", "zig_build_libghostty")
+load("//third_party:zig_build.bzl", "zig_build_libghostty")
 
 # Expose all source files required by the zig build
 filegroup(

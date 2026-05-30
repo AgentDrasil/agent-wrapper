@@ -20,28 +20,20 @@ A command-line wrapper to run TUI (Terminal User Interface) coding agents—spec
 | Tool | Purpose |
 |---|---|
 | [Bazel](https://bazel.build/install) ≥ 8.2.1 | Primary build system (version pinned in `.bazelversion`) |
-| [Docker](https://docs.docker.com/get-docker/) | Builds `libghostty-vt` (only needed once, or after ghostty updates) |
 | [just](https://github.com/casey/just) | Optional: legacy task runner kept for convenience |
 
-### Step 1 — Build libghostty-vt (one-time / on ghostty updates)
+### Step 1 — Initialize Submodules
 
-Bazel consumes the pre-built static library from `out/ghostty/`. Generate it with:
+Ensure the ghostty git submodule is initialized:
 
 ```bash
-# Initialise the ghostty git submodule if you haven't already
-just submodule-update
-
-# Build libghostty-vt inside Docker (produces out/ghostty/{include,lib,share})
-just build-libghostty
+git submodule update --init --recursive
 ```
 
 ### Step 2 — Build with Bazel
 
 ```bash
-# Fetch and lock all external dependencies
-bazel mod deps
-
-# Build the agent-wrapper binary
+# Build the agent-wrapper binary (this automatically compiles libghostty-vt using the hermetic Zig toolchain)
 bazel build //:agent_wrapper
 
 # The binary lands at:
@@ -58,15 +50,6 @@ bazel build --config=linux_amd64 //:agent_wrapper
 
 ```bash
 bazel run //:gazelle
-```
-
-### Legacy build (just)
-
-The original `just build` workflow still works and is kept for reference:
-
-```bash
-just build       # go build + zig cc (outputs ./agent-wrapper)
-just clean       # remove build artefacts and Go cache
 ```
 
 ---

@@ -1,9 +1,3 @@
-/out/
-# Keep the Bazel target file tracked, but ignore the built artifacts themselves.
-!/out/ghostty/BUILD.bazel
-/agent-wrapper
-/.zig-cache/
-
 # ── Bazel ─────────────────────────────────────────────────────────────────────
 /bazel-*
 /.bazelrc.user

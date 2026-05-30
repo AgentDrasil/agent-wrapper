@@ -18,14 +18,13 @@ gazelle(name = "gazelle")
 
 # ── Main binary ───────────────────────────────────────────────────────────────
 # agent-wrapper is a CGO binary that embeds libghostty's VT state machine.
-# The C dependency (libghostty-vt.a) is declared in //out/ghostty:ghostty_vt.
-# Run `just build-libghostty` first to populate out/ghostty/ if it is missing.
+# The C dependency (libghostty-vt.a) is declared in //third_party:ghostty_vt.
 go_binary(
     name = "agent_wrapper",
     srcs = ["main.go"],
     cgo  = True,
-    # Link the pre-built libghostty-vt static library.
-    cdeps = ["//out/ghostty:ghostty_vt"],
+    # Link the libghostty-vt static library from third_party.
+    cdeps = ["//third_party:ghostty_vt"],
     # Needed so that the CGO preamble's #include <ghostty/vt.h> resolves.
     copts = ["-DGHOSTTY_STATIC"],
     deps = [

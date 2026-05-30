@@ -1,2 +1,0 @@
-# tools/ package marker — allows BUILD.bazel files to live here.
-# Gazelle will populate this file if any Go sources are added under tools/.

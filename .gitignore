@@ -1,4 +1,1 @@
-# ── Bazel ─────────────────────────────────────────────────────────────────────
-/bazel-*
-/.bazelrc.user
-/MODULE.bazel.lock
+agent-wrapper

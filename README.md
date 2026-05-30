@@ -11,49 +11,6 @@ A command-line wrapper to run TUI (Terminal User Interface) coding agents—spec
   * **Config Directories (`CONFIG_DIR`)**: Necessary to manage isolated settings (e.g., custom `gemini.md`, tool permissions) across different agent instances.
   * **Model Selection & Quotas**: Unable to query or switch models programmatically in prompt mode.
 
----
-
-## Building
-
-### Prerequisites
-
-| Tool | Purpose |
-|---|---|
-| [Bazel](https://bazel.build/install) ≥ 8.2.1 | Primary build system (version pinned in `.bazelversion`) |
-| [just](https://github.com/casey/just) | Optional: legacy task runner kept for convenience |
-
-### Step 1 — Initialize Submodules
-
-Ensure the ghostty git submodule is initialized:
-
-```bash
-git submodule update --init --recursive
-```
-
-### Step 2 — Build with Bazel
-
-```bash
-# Build the agent-wrapper binary (this automatically compiles libghostty-vt using the hermetic Zig toolchain)
-bazel build //:agent_wrapper
-
-# The binary lands at:
-#   bazel-bin/agent_wrapper_/agent_wrapper
-```
-
-#### Cross-compile to linux/amd64 explicitly
-
-```bash
-bazel build --config=linux_amd64 //:agent_wrapper
-```
-
-#### Regenerate BUILD files after go.mod changes
-
-```bash
-bazel run //:gazelle
-```
-
----
-
 ## How to?
 
 ### Claude Code
@@ -65,7 +22,7 @@ bazel run //:gazelle
 To wrap `agy` and extract the necessary execution state, the following approaches are planned:
 
 1. **Virtual Terminal Emulation**:
-   * Use `libghostty` to open a headless virtual terminal (VT) to run the full interactive TUI.
+   * Use `rcarmo/go-te` to open a headless virtual terminal (VT) to run the full interactive TUI.
    * Parse the statusline hook or TUI screen output to extract the **context used** and **session ID**.
 2. **Configuration Sandboxing**:
    * Use **Bubblewrap** (or another lightweight sandboxing tool) to dynamically map directory paths to `~/.gemini/` before invoking `agy`.

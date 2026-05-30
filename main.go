@@ -45,7 +45,7 @@ import (
 	"time"
 
 	"github.com/creack/pty"
-	"go.mitchellh.com/libghostty"
+	"github.com/rcarmo/go-te/pkg/te"
 )
 
 // ─── Configuration ───────────────────────────────────────────────────────────
@@ -92,10 +92,11 @@ var (
 // via libghostty. It is NOT safe for concurrent use across its exported
 // methods; use the returned SessionState channel to read scraped state.
 type Runner struct {
-	mu   sync.Mutex // guards term and all libghostty calls
-	term *libghostty.Terminal
-	ptmx *os.File
-	cmd  *exec.Cmd
+	mu     sync.Mutex // guards screen/stream and all go-te calls
+	screen *te.Screen
+	stream *te.ByteStream
+	ptmx   *os.File
+	cmd    *exec.Cmd
 
 	cols uint16
 	rows uint16
@@ -113,33 +114,15 @@ func NewRunner(cols, rows uint16) (*Runner, error) {
 		stateCh: make(chan SessionState, 16),
 	}
 
-	// Create the libghostty virtual terminal.
-	term, err := libghostty.NewTerminal(
-		libghostty.WithSize(cols, rows),
-		libghostty.WithMaxScrollback(defaultScrollback),
-		// Effect: terminal writes a response back to the PTY (e.g. DA1, XTVERSION).
-		// We forward those bytes to ptmx so the agent process actually receives them.
-		libghostty.WithWritePty(func(_ *libghostty.Terminal, data []byte) {
-			if r.ptmx != nil {
-				_, _ = r.ptmx.Write(data)
-			}
-		}),
-		// Effect: track title changes for session metadata.
-		libghostty.WithTitleChanged(func(t *libghostty.Terminal) {
-			// Title is not directly readable via the API; we read it via the
-			// plain-text formatter on the next scrape cycle. We just signal
-			// that something changed.
-			log.Printf("[title] terminal title changed")
-		}),
-		// Effect: respond to XTVERSION so the agent knows our emulator.
-		libghostty.WithXtversion(func(_ *libghostty.Terminal) string {
-			return "agent-wrapper/1.0"
-		}),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("libghostty.NewTerminal: %w", err)
+	// Create the virtual terminal screen and stream.
+	screen := te.NewScreen(int(cols), int(rows))
+	screen.WriteProcessInput = func(data string) {
+		if r.ptmx != nil {
+			_, _ = r.ptmx.Write([]byte(data))
+		}
 	}
-	r.term = term
+	r.screen = screen
+	r.stream = te.NewByteStream(screen, false)
 	return r, nil
 }
 
@@ -184,7 +167,7 @@ func (r *Runner) readLoop(done chan<- error) {
 		n, err := r.ptmx.Read(buf)
 		if n > 0 {
 			r.mu.Lock()
-			r.term.VTWrite(buf[:n])
+			_ = r.stream.Feed(buf[:n])
 			r.mu.Unlock()
 		}
 		if err != nil {
@@ -220,9 +203,7 @@ func (r *Runner) Resize(cols, rows uint16) error {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if err := r.term.Resize(cols, rows, 8, 16); err != nil {
-		return fmt.Errorf("terminal.Resize: %w", err)
-	}
+	r.screen.Resize(int(rows), int(cols))
 	r.cols = cols
 	r.rows = rows
 	return nil
@@ -235,21 +216,8 @@ func (r *Runner) Scrape() (SessionState, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	f, err := libghostty.NewFormatter(r.term,
-		libghostty.WithFormatterFormat(libghostty.FormatterFormatPlain),
-		libghostty.WithFormatterTrim(true),
-	)
-	if err != nil {
-		return SessionState{}, fmt.Errorf("NewFormatter: %w", err)
-	}
-	defer f.Close()
-
-	text, err := f.FormatString()
-	if err != nil {
-		return SessionState{}, fmt.Errorf("FormatString: %w", err)
-	}
-
-	return parseSessionState(text, r.title), nil
+	text := strings.Join(r.screen.Display(), "\n")
+	return parseSessionState(text, r.screen.Title), nil
 }
 
 // StateCh returns the channel on which periodic scrape results are delivered.
@@ -288,10 +256,8 @@ func (r *Runner) Close() {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if r.term != nil {
-		r.term.Close()
-		r.term = nil
-	}
+	r.screen = nil
+	r.stream = nil
 }
 
 // ─── Screen scraping helpers ─────────────────────────────────────────────────

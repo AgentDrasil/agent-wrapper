@@ -38,7 +38,7 @@ def _zig_build_libghostty_impl(ctx):
     mkdir -p "$BUILD_DIR"
     
     # Copy everything dereferencing symlinks
-    cp -rL third_party/ghostty/* "$BUILD_DIR/"
+    cp -rL third_party/ghostty/ghostty/* "$BUILD_DIR/"
     
     cd "$BUILD_DIR"
     

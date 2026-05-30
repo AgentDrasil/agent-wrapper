@@ -51,22 +51,22 @@ import (
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const (
-	defaultCols        = 220 // wide enough to capture full status-line content
-	defaultRows        = 50
-	defaultScrollback  = 50_000
-	scrapeInterval     = 500 * time.Millisecond
-	idleTimeout        = 5 * time.Minute
+	defaultCols       = 220 // wide enough to capture full status-line content
+	defaultRows       = 50
+	defaultScrollback = 50_000
+	scrapeInterval    = 500 * time.Millisecond
+	idleTimeout       = 5 * time.Minute
 )
 
 // ─── Session state ────────────────────────────────────────────────────────────
 
 // SessionState holds the key metadata extracted from the agent's TUI screen.
 type SessionState struct {
-	SessionID    string
-	ContextUsed  string // e.g. "42%" or "1234/32000 tokens"
-	StatusLine   string // raw last status-bar line, for debugging
-	Title        string // terminal title set by OSC 0/2
-	LastUpdated  time.Time
+	SessionID   string
+	ContextUsed string // e.g. "42%" or "1234/32000 tokens"
+	StatusLine  string // raw last status-bar line, for debugging
+	Title       string // terminal title set by OSC 0/2
+	LastUpdated time.Time
 }
 
 func (s SessionState) String() string {
@@ -92,16 +92,16 @@ var (
 // via libghostty. It is NOT safe for concurrent use across its exported
 // methods; use the returned SessionState channel to read scraped state.
 type Runner struct {
-	mu      sync.Mutex // guards term and all libghostty calls
-	term    *libghostty.Terminal
-	ptmx    *os.File
-	cmd     *exec.Cmd
+	mu   sync.Mutex // guards term and all libghostty calls
+	term *libghostty.Terminal
+	ptmx *os.File
+	cmd  *exec.Cmd
 
 	cols uint16
 	rows uint16
 
-	stateCh  chan SessionState
-	title    string // updated by onTitleChanged effect
+	stateCh chan SessionState
+	title   string // updated by onTitleChanged effect
 }
 
 // NewRunner creates a Runner that will execute the given command inside a

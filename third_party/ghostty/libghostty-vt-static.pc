@@ -1,6 +1,6 @@
 prefix=${pcfiledir}
 exec_prefix=${prefix}
-libdir=${prefix}/../bazel-bin/third_party
+libdir=${prefix}/../../bazel-bin/third_party/ghostty
 includedir=${prefix}/ghostty/include
 
 Name: libghostty-vt-static

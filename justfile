@@ -1,4 +1,4 @@
-export PKG_CONFIG_PATH := justfile_directory() + "/third_party"
+export PKG_CONFIG_PATH := justfile_directory() + "/third_party/ghostty"
 
 # Update git submodules recursively
 submodule-update:
@@ -21,5 +21,5 @@ fmt:
     goimports -w -local "github.com/AgentDrasil/agent-wrapper" .
 
 # Run golangci-lint
-lint:
+lint: build
     golangci-lint run

@@ -27,7 +27,7 @@ use_repo(
 # Without this, CGO compilation fails because the ghostty headers aren't visible.
 go_deps.module_override(
     path = "go.mitchellh.com/libghostty",
-    patches = ["//third_party/patches:libghostty_cdeps.patch"],
+    patches = ["//third_party/go_libghostty_patches:libghostty_cdeps.patch"],
     patch_strip = 1,
 )
 

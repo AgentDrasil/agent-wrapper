@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -8,9 +10,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	agy "github.com/AgentDrasil/agent-wrapper/lib/agents/agy"
 )
 
 var (
+	agyDir     string
 	agyPrompt  string
 	agySession string
 	agyUsage   bool
@@ -25,6 +30,15 @@ var agyCmd = &cobra.Command{
 			return fmt.Errorf("agy command not found in PATH: %w", err)
 		}
 
+		dir := agyDir
+		if dir == "" {
+			var err error
+			dir, err = os.Getwd()
+			if err != nil {
+				return fmt.Errorf("could not determine current directory: %w", err)
+			}
+		}
+
 		var prompt string
 		if !agyUsage {
 			var err error
@@ -33,9 +47,22 @@ var agyCmd = &cobra.Command{
 				return err
 			}
 		}
-		fmt.Println(prompt)
 
-		// TODO: implement
+		if agyUsage {
+			entries, err := agy.Usage(context.Background(), agy.UsageOptions{Dir: dir})
+			if err != nil {
+				return fmt.Errorf("fetching usage: %w", err)
+			}
+			out, err := json.MarshalIndent(entries, "", "  ")
+			if err != nil {
+				return fmt.Errorf("encoding usage: %w", err)
+			}
+			fmt.Println(string(out))
+			return nil
+		}
+
+		_ = prompt
+		// TODO: implement non-usage path
 		return nil
 	},
 }
@@ -72,6 +99,7 @@ func resolvePrompt(flagValue string) (string, error) {
 }
 
 func init() {
+	agyCmd.Flags().StringVar(&agyDir, "dir", "", "Working directory for the agent (defaults to current directory)")
 	agyCmd.Flags().StringVarP(&agyPrompt, "prompt", "p", "", "Prompt to send to the agent (or pipe via stdin)")
 	agyCmd.Flags().StringVarP(&agySession, "session", "s", "", "Session ID to resume")
 	agyCmd.Flags().BoolVar(&agyUsage, "usage", false, "Print token usage information")

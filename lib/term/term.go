@@ -71,11 +71,18 @@ func NewTerm(cols, rows uint16) *Term {
 // env is an optional list of extra KEY=VALUE environment variables appended
 // to os.Environ(). TERM, COLUMNS, and LINES are always set automatically.
 func (t *Term) RunCommand(ctx context.Context, argv []string, env []string) (<-chan error, error) {
+	return t.RunCommandInDir(ctx, argv, "", env)
+}
+
+// RunCommandInDir is like RunCommand but also sets the working directory of
+// the child process. When dir is empty the child inherits the caller's cwd.
+func (t *Term) RunCommandInDir(ctx context.Context, argv []string, dir string, env []string) (<-chan error, error) {
 	if len(argv) == 0 {
 		return nil, errors.New("argv must not be empty")
 	}
 
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), env...)
 	cmd.Env = append(cmd.Env,
 		"TERM=xterm-256color",

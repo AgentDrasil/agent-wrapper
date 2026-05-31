@@ -1,0 +1,204 @@
+package agy
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// usageOutput mirrors the real /usage scrollback, using actual Unicode
+// block-drawing characters so the bar-detection regex fires correctly.
+const usageOutput = `
+  Gemini 3.5 Flash (Medium)
+  ███████████ ███████████ ███████████ ███████████ ███████████ 100%
+  Quota available
+
+  Gemini 3.5 Flash (High)
+  ███████████ ███████████ ███████████ ███████████ ███████████ 100%
+  Quota available
+
+  Gemini 3.5 Flash (Low)
+  ███████████ ███████████ ███████████ ███████████ ███████████ 100%
+  Quota available
+
+  Gemini 3.1 Pro (Low)
+  ███████████ ███████████ ███████████ ███████████ ███████████ 100%
+  Quota available
+
+  Gemini 3.1 Pro (High)
+  ███████████ ███████████ ███████████ ███████████ ███████████ 100%
+  Quota available
+
+  Claude Sonnet 4.6 (Thinking)
+  ███████████ ███████████ ███████████ ███████████ ░░░░░░░░░░░ 80%
+  80% remaining · Refreshes in 1h 23m
+
+  Claude Opus 4.6 (Thinking)
+  ███████████ ███████████ ███████████ ███████████ ░░░░░░░░░░░ 80%
+  80% remaining · Refreshes in 1h 23m
+
+  GPT-OSS 120B (Medium)
+  ███████████ ███████████ ███████████ ███████████ ░░░░░░░░░░░ 80%
+  80% remaining · Refreshes in 1h 23m
+`
+
+// toLines splits a raw string into lines for ParseUsage.
+func toLines(s string) []string {
+	return strings.Split(s, "\n")
+}
+
+// makeBlock builds a minimal scrollback string for a single model entry.
+func makeBlock(t *testing.T, model string, pct int, status string) []string {
+	t.Helper()
+	raw := fmt.Sprintf("\n  %s\n  ███░░░ %d%%\n  %s\n", model, pct, status)
+	return toLines(raw)
+}
+
+func TestParseUsage_FullSample(t *testing.T) {
+	t.Parallel()
+
+	entries, err := parseUsage(toLines(usageOutput))
+	require.NoError(t, err)
+	require.Len(t, entries, 8)
+
+	// Spot-check a fully-available model.
+	assert.Equal(t, "Gemini 3.5 Flash (Medium)", entries[0].Model)
+	assert.InDelta(t, 1.0, entries[0].Remaining, 1e-9)
+	assert.Empty(t, entries[0].RefreshTime)
+
+	// Spot-check a partially-used model.
+	assert.Equal(t, "Claude Sonnet 4.6 (Thinking)", entries[5].Model)
+	assert.InDelta(t, 0.8, entries[5].Remaining, 1e-9)
+	assert.Equal(t, "1h 23m", entries[5].RefreshTime)
+}
+
+func TestParseUsage_TableDriven(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		input       string
+		wantLen     int
+		wantEntries []ModelUsage
+	}{
+		{
+			name: "single fully available model",
+			input: `
+  My Model A
+  ███████████ 100%
+  Quota available
+`,
+			wantLen: 1,
+			wantEntries: []ModelUsage{
+				{Model: "My Model A", Remaining: 1.0},
+			},
+		},
+		{
+			name: "single partially used model",
+			input: `
+  My Model B
+  ███████████ ░░░░░░░░░░░ 80%
+  80% remaining · Refreshes in 2h 5m
+`,
+			wantLen: 1,
+			wantEntries: []ModelUsage{
+				{Model: "My Model B", Remaining: 0.8, RefreshTime: "2h 5m"},
+			},
+		},
+		{
+			name: "zero percent remaining",
+			input: `
+  Exhausted Model
+  ░░░░░░░░░░░ 0%
+  0% remaining · Refreshes in 59m
+`,
+			wantLen: 1,
+			wantEntries: []ModelUsage{
+				{Model: "Exhausted Model", Remaining: 0.0, RefreshTime: "59m"},
+			},
+		},
+		{
+			name: "mixed models",
+			input: `
+  Full Model
+  ███████████ 100%
+  Quota available
+
+  Half Model
+  ██████░░░░░ 50%
+  50% remaining · Refreshes in 30m
+`,
+			wantLen: 2,
+			wantEntries: []ModelUsage{
+				{Model: "Full Model", Remaining: 1.0},
+				{Model: "Half Model", Remaining: 0.5, RefreshTime: "30m"},
+			},
+		},
+		{
+			name:    "empty input",
+			input:   "",
+			wantLen: 0,
+		},
+		{
+			name: "non-usage blocks are skipped",
+			input: `
+  Some header text
+  without any bar characters
+
+  Model With Bar
+  ███ 100%
+  Quota available
+`,
+			wantLen: 1,
+			wantEntries: []ModelUsage{
+				{Model: "Model With Bar", Remaining: 1.0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			entries, err := parseUsage(toLines(tt.input))
+			require.NoError(t, err)
+			require.Len(t, entries, tt.wantLen)
+
+			for i, want := range tt.wantEntries {
+				assert.Equal(t, want.Model, entries[i].Model, "entries[%d].Model", i)
+				assert.InDelta(t, want.Remaining, entries[i].Remaining, 1e-9, "entries[%d].Remaining", i)
+				assert.Equal(t, want.RefreshTime, entries[i].RefreshTime, "entries[%d].RefreshTime", i)
+			}
+		})
+	}
+}
+
+func TestParseUsage_RemainingFraction(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		pct      int
+		expected float64
+	}{
+		{100, 1.0},
+		{80, 0.8},
+		{50, 0.5},
+		{25, 0.25},
+		{0, 0.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d%%", tt.pct), func(t *testing.T) {
+			t.Parallel()
+
+			lines := makeBlock(t, "Model X", tt.pct, "Quota available")
+			entries, err := parseUsage(lines)
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.InDelta(t, tt.expected, entries[0].Remaining, 1e-9)
+		})
+	}
+}

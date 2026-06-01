@@ -63,9 +63,9 @@ type PromptResult struct {
 	// MaxTokens is the value of max (context window size) from the final statusline.
 	MaxTokens int `json:"max_tokens"`
 
-	// Remaining is the remaining-quota percentage string from the final
-	// statusline, e.g. "91.6%".
-	Remaining string `json:"remaining"`
+	// Remaining is the fraction of remaining quota in [0, 1] from the final
+	// statusline, e.g. 0.916.
+	Remaining float64 `json:"remaining"`
 
 	// LastContent is the raw "content" field of the last line in the
 	// transcript JSONL file, giving the caller access to the full response.

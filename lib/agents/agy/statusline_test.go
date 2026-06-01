@@ -14,7 +14,7 @@ func TestParseStatusLine(t *testing.T) {
 		lines         []string
 		wantInput     int
 		wantMax       int
-		wantRemaining string
+		wantRemaining float64
 	}{
 		{
 			name: "standard statusline",
@@ -24,7 +24,7 @@ func TestParseStatusLine(t *testing.T) {
 			},
 			wantInput:     88244,
 			wantMax:       1048576,
-			wantRemaining: "91.6%",
+			wantRemaining: 0.916,
 		},
 		{
 			name: "padded with empty lines at the bottom",
@@ -35,7 +35,7 @@ func TestParseStatusLine(t *testing.T) {
 			},
 			wantInput:     123,
 			wantMax:       456,
-			wantRemaining: "80%",
+			wantRemaining: 0.8,
 		},
 
 		{
@@ -43,14 +43,14 @@ func TestParseStatusLine(t *testing.T) {
 			lines:         []string{"just raw logs", "without labels"},
 			wantInput:     0,
 			wantMax:       0,
-			wantRemaining: "",
+			wantRemaining: 0.0,
 		},
 		{
 			name:          "empty scrollback slice",
 			lines:         []string{},
 			wantInput:     0,
 			wantMax:       0,
-			wantRemaining: "",
+			wantRemaining: 0.0,
 		},
 	}
 
@@ -60,7 +60,7 @@ func TestParseStatusLine(t *testing.T) {
 			gotInput, gotMax, gotRemaining := parseStatusLine(tt.lines)
 			assert.Equal(t, tt.wantInput, gotInput)
 			assert.Equal(t, tt.wantMax, gotMax)
-			assert.Equal(t, tt.wantRemaining, gotRemaining)
+			assert.InDelta(t, tt.wantRemaining, gotRemaining, 1e-9)
 		})
 	}
 }

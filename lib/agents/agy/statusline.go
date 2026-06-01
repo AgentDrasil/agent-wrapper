@@ -14,7 +14,7 @@ var (
 
 // parseStatusLine extracts inputTokens, maxTokens, and remaining from the
 // last non-empty line of the terminal scrollback. Returns zero values on parse failure.
-func parseStatusLine(lines []string) (inputTokens, maxTokens int, remaining string) {
+func parseStatusLine(lines []string) (inputTokens, maxTokens int, remaining float64) {
 	if len(lines) == 0 {
 		return
 	}
@@ -37,7 +37,17 @@ func parseStatusLine(lines []string) (inputTokens, maxTokens int, remaining stri
 		maxTokens, _ = strconv.Atoi(m[1])
 	}
 	if m := reRemaining.FindStringSubmatch(last); m != nil {
-		remaining = strings.TrimSpace(m[1])
+		s := strings.TrimSpace(m[1])
+		hasPct := strings.HasSuffix(s, "%")
+		s = strings.TrimSuffix(s, "%")
+		val, err := strconv.ParseFloat(s, 64)
+		if err == nil {
+			if hasPct {
+				remaining = val / 100.0
+			} else {
+				remaining = val
+			}
+		}
 	}
 	return
 }

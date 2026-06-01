@@ -1,8 +1,8 @@
 // agystatusline reads the JSON payload that the antigravity-cli (agy) pipes to
-// a custom status line command via stdin, extracts the three fields we care
-// about, and prints a compact one-line status string to stdout:
+// a custom status line command via stdin, extracts the fields we care about,
+// and prints a compact one-line status string to stdout:
 //
-//	<agent_state> | <total_input_tokens> | <remaining>%
+//	<agent_state> | <total_input_tokens> | <context_window_size> | <remaining>%
 //
 // The remaining-percentage segment is coloured green (≥ 80 %), yellow (≥ 50 %),
 // or red (< 50 %) using ANSI escape codes so the value stands out in the
@@ -33,6 +33,7 @@ type payload struct {
 
 type contextWindow struct {
 	TotalInputTokens    int     `json:"total_input_tokens"`
+	ContextWindowSize   int     `json:"context_window_size"`
 	RemainingPercentage float64 `json:"remaining_percentage"`
 }
 
@@ -55,35 +56,33 @@ func remainingColor(pct float64) string {
 	}
 }
 
-func run(r io.Reader, w io.Writer) error {
+func run(r io.Reader) (string, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return fmt.Errorf("reading stdin: %w", err)
+		return "", fmt.Errorf("reading stdin: %w", err)
 	}
 
 	var p payload
 	if err := json.Unmarshal(data, &p); err != nil {
-		return fmt.Errorf("parsing JSON: %w", err)
+		return "", fmt.Errorf("parsing JSON: %w", err)
 	}
 
 	color := remainingColor(p.ContextWindow.RemainingPercentage)
-	_, err = fmt.Fprintf(w, "%s | %d | %s%.1f%%%s\n",
+	return fmt.Sprintf("%s | %d | %d | %s%.1f%%%s",
 		p.AgentState,
 		p.ContextWindow.TotalInputTokens,
+		p.ContextWindow.ContextWindowSize,
 		color,
 		p.ContextWindow.RemainingPercentage,
 		ansiReset,
-	)
-
-	if err != nil {
-		return fmt.Errorf("writing failed: %v", err)
-	}
-	return nil
+	), nil
 }
 
 func main() {
-	if err := run(os.Stdin, os.Stdout); err != nil {
+	line, err := run(os.Stdin)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "agystatusline: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Println(line)
 }

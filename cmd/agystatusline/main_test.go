@@ -24,10 +24,11 @@ func TestRun(t *testing.T) {
 				"agent_state": "idle",
 				"context_window": {
 					"total_input_tokens": 88244,
+					"context_window_size": 200000,
 					"remaining_percentage": 91.58
 				}
 			}`,
-			wantContain: []string{"idle", "88244", "91.6%", ansiGreen},
+			wantContain: []string{"idle", "88244", "200000", "91.6%", ansiGreen},
 		},
 		{
 			name: "thinking with medium remaining (yellow)",
@@ -35,10 +36,11 @@ func TestRun(t *testing.T) {
 				"agent_state": "thinking",
 				"context_window": {
 					"total_input_tokens": 500000,
+					"context_window_size": 1000000,
 					"remaining_percentage": 52.0
 				}
 			}`,
-			wantContain: []string{"thinking", "500000", "52.0%", ansiYellow},
+			wantContain: []string{"thinking", "500000", "1000000", "52.0%", ansiYellow},
 		},
 		{
 			name: "working with low remaining (red)",
@@ -46,10 +48,11 @@ func TestRun(t *testing.T) {
 				"agent_state": "working",
 				"context_window": {
 					"total_input_tokens": 990000,
+					"context_window_size": 1048576,
 					"remaining_percentage": 5.5
 				}
 			}`,
-			wantContain: []string{"working", "990000", "5.5%", ansiRed},
+			wantContain: []string{"working", "990000", "1048576", "5.5%", ansiRed},
 		},
 		{
 			name: "exactly 80 percent remaining (green)",
@@ -57,10 +60,11 @@ func TestRun(t *testing.T) {
 				"agent_state": "tool_use",
 				"context_window": {
 					"total_input_tokens": 200000,
+					"context_window_size": 250000,
 					"remaining_percentage": 80.0
 				}
 			}`,
-			wantContain: []string{"tool_use", "200000", "80.0%", ansiGreen},
+			wantContain: []string{"tool_use", "200000", "250000", "80.0%", ansiGreen},
 		},
 		{
 			name: "exactly 50 percent remaining (yellow)",
@@ -68,10 +72,11 @@ func TestRun(t *testing.T) {
 				"agent_state": "initializing",
 				"context_window": {
 					"total_input_tokens": 524288,
+					"context_window_size": 1048576,
 					"remaining_percentage": 50.0
 				}
 			}`,
-			wantContain: []string{"initializing", "524288", "50.0%", ansiYellow},
+			wantContain: []string{"initializing", "524288", "1048576", "50.0%", ansiYellow},
 		},
 		{
 			name:    "invalid JSON",
@@ -89,8 +94,7 @@ func TestRun(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var out strings.Builder
-			err := run(strings.NewReader(tt.input), &out)
+			got, err := run(strings.NewReader(tt.input))
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -98,7 +102,6 @@ func TestRun(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			got := out.String()
 			for _, want := range tt.wantContain {
 				assert.Contains(t, got, want)
 			}

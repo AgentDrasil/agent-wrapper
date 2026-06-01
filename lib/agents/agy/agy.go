@@ -4,14 +4,16 @@ package agy
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/AgentDrasil/agent-wrapper/lib/term"
 )
 
 const (
-	termCols uint16 = 220
-	termRows uint16 = 50
+	termCols    uint16        = 220
+	termRows    uint16        = 50
+	pollInterval time.Duration = 200 * time.Millisecond
 )
 
 // UsageOptions controls how [Usage] behaves.
@@ -21,8 +23,9 @@ type UsageOptions struct {
 	// before invoking this function.
 	Dir string
 
-	// StartupDelay is how long to wait for agy to finish its initial render
-	// before sending the /usage command. Defaults to 3 seconds.
+	// StartupDelay is the maximum time to wait for agy's statusbar to report
+	// "idle" before sending the /usage command. The check polls every 200 ms.
+	// Defaults to 10 seconds.
 	StartupDelay time.Duration
 
 	// ResponseDelay is how long to wait for the /usage output to appear after
@@ -34,7 +37,21 @@ func (o *UsageOptions) startupDelay() time.Duration {
 	if o.StartupDelay > 0 {
 		return o.StartupDelay
 	}
-	return 3 * time.Second
+	return 10 * time.Second
+}
+
+// isIdle returns true when the last line of lines (the statusbar) has
+// "idle" as its first whitespace-separated token.
+func isIdle(lines []string) bool {
+	if len(lines) == 0 {
+		return false
+	}
+	last := lines[len(lines)-1]
+	fields := strings.Fields(last)
+	if len(fields) == 0 {
+		return false
+	}
+	return strings.EqualFold(fields[0], "idle")
 }
 
 func (o *UsageOptions) responseDelay() time.Duration {
@@ -50,8 +67,9 @@ func (o *UsageOptions) responseDelay() time.Duration {
 // The sequence performed is:
 //  1. Open a headless PTY-backed terminal (220×50).
 //  2. Launch `agy`.
-//  3. Wait for startup, then send "/usage\r".
-//  4. Wait for the response to render.
+//  3. Poll the scrollback every 200 ms until the statusbar last line's first
+//     token is "idle" (or StartupDelay elapses).
+//  4. Send "/usage\r" and wait for the response to render.
 //  5. Press Esc, then Ctrl-D twice to exit.
 //  6. Parse and return the scrollback as []ModelUsage.
 func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
@@ -65,13 +83,26 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 		return nil, fmt.Errorf("launching agy: %w", err)
 	}
 
-	// Wait for agy to render its initial UI.
-	select {
-	case <-time.After(opts.startupDelay()):
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-done:
-		return nil, fmt.Errorf("agy exited unexpectedly during startup: %w", err)
+	// Poll until the statusbar last line reports "idle", up to startupDelay.
+	readyTimer := time.NewTimer(opts.startupDelay())
+	defer readyTimer.Stop()
+	pollTick := time.NewTicker(pollInterval)
+	defer pollTick.Stop()
+waitIdle:
+	for {
+		select {
+		case <-pollTick.C:
+			if isIdle(t.Scrollback()) {
+				break waitIdle
+			}
+		case <-readyTimer.C:
+			// Timeout reached — proceed anyway and let /usage fail visibly.
+			break waitIdle
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case err := <-done:
+			return nil, fmt.Errorf("agy exited unexpectedly during startup: %w", err)
+		}
 	}
 
 	// Send the /usage command followed by Enter.

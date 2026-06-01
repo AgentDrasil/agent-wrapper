@@ -1,12 +1,12 @@
 package commands
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -40,6 +40,9 @@ var agyCmd = &cobra.Command{
 			}
 		}
 
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
+		defer stop()
+
 		var prompt string
 		if !agyUsage {
 			var err error
@@ -50,7 +53,7 @@ var agyCmd = &cobra.Command{
 		}
 
 		if agyUsage {
-			entries, err := agy.Usage(context.Background(), agy.UsageOptions{Dir: dir})
+			entries, err := agy.Usage(ctx, agy.UsageOptions{Dir: dir})
 			if err != nil {
 				return fmt.Errorf("fetching usage: %w", err)
 			}
@@ -62,7 +65,7 @@ var agyCmd = &cobra.Command{
 			return nil
 		}
 
-		result, err := agy.Prompt(context.Background(), prompt, agy.PromptOptions{
+		result, err := agy.Prompt(ctx, prompt, agy.PromptOptions{
 			Dir:       dir,
 			SessionID: agySession,
 			Model:     agyModel,

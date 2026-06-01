@@ -102,15 +102,23 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 
 	log.Debug().Interface("argv", argv).Msg("agy/prompt: starting")
 
-	done, err := t.RunCommandInDir(ctx, argv, opts.Dir, nil)
+	done, err := t.RunCommandInDir(context.Background(), argv, opts.Dir, nil)
 	if err != nil {
 		return nil, fmt.Errorf("launching agy: %w", err)
+	}
+
+	handleErr := func(err error) error {
+		if ctx.Err() != nil {
+			GratefulShutdown(t, done)
+			return ctx.Err()
+		}
+		return err
 	}
 
 	// ── idle #1: wait for startup idle ────────────────────────────────────────
 	log.Debug().Msg("agy/prompt: waiting for startup idle (#1)")
 	if timedOut, err := pollUntilIdle(ctx, t, done, opts.startupDelay()); err != nil {
-		return nil, err
+		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: startup idle (#1) timed out")
 	} else {
@@ -120,23 +128,23 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 	// ── select model if requested ─────────────────────────────────────────────
 	if opts.Model != "" {
 		if err := SelectModel(ctx, t, done, opts.Model); err != nil {
-			return nil, fmt.Errorf("selecting model %q: %w", opts.Model, err)
+			return nil, handleErr(fmt.Errorf("selecting model %q: %w", opts.Model, err))
 		}
 	}
 
 	// ── send the prompt ───────────────────────────────────────────────────────
 	if err := t.SendString(prompt); err != nil {
-		return nil, fmt.Errorf("sending prompt: %w", err)
+		return nil, handleErr(fmt.Errorf("sending prompt: %w", err))
 	}
 	if err := t.SendKeys(term.KeyEnter); err != nil {
-		return nil, fmt.Errorf("sending Enter: %w", err)
+		return nil, handleErr(fmt.Errorf("sending Enter: %w", err))
 	}
 	log.Debug().Msg("agy/prompt: prompt sent")
 
 	// ── idle #2: wait for the agent to finish responding ──────────────────────
 	log.Debug().Msg("agy/prompt: waiting for post-response idle (#2)")
 	if timedOut, err := pollUntilIdle(ctx, t, done, opts.responseDelay()); err != nil {
-		return nil, err
+		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: post-response idle (#2) timed out")
 	} else {
@@ -147,12 +155,12 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 	select {
 	case <-time.After(200 * time.Millisecond):
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, handleErr(ctx.Err())
 	}
 
 	log.Debug().Msg("agy/prompt: waiting for double-check idle (#3)")
 	if timedOut, err := pollUntilIdle(ctx, t, done, opts.responseDelay()); err != nil {
-		return nil, err
+		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: double-check idle (#3) timed out")
 	} else {
@@ -163,18 +171,7 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 	finalLines := t.Scrollback()
 
 	// ── exit agy cleanly ─────────────────────────────────────────────────────
-	_ = t.SendKeys(term.KeyEsc)
-	time.Sleep(200 * time.Millisecond)
-	_ = t.SendKeys(term.KeyCtrlD)
-	time.Sleep(200 * time.Millisecond)
-	_ = t.SendKeys(term.KeyCtrlD)
-
-	exitCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	select {
-	case <-done:
-	case <-exitCtx.Done():
-	}
+	CleanExit(t, done)
 
 	// ── if new session, extract session ID from scrollback after exit ───────
 	if isNewSession {

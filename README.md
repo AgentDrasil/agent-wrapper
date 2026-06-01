@@ -27,6 +27,7 @@ To wrap `agy` and extract the necessary execution state, the following approache
 2. **Configuration Sandboxing**:
    * Use **Bubblewrap** (or another lightweight sandboxing tool) to dynamically map directory paths to `~/.gemini/` before invoking `agy`.
    * Configure model selection by programmatically modifying `~/.gemini/antigravity-cli/settings.json`.
+   * Configure different skills for agents.
 3. **Quota Tracking**:
    * Retrieve current model quota limits and usage by programmatically invoking the `/usage` command inside the virtual terminal.
 4. **Artifact Management**:

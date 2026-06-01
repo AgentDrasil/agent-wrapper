@@ -145,16 +145,24 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 
 	argv := []string{"agy"}
 
-	done, err := t.RunCommandInDir(ctx, argv, opts.Dir, nil)
+	done, err := t.RunCommandInDir(context.Background(), argv, opts.Dir, nil)
 	if err != nil {
 		return nil, fmt.Errorf("launching agy/usage: %w", err)
+	}
+
+	handleErr := func(err error) error {
+		if ctx.Err() != nil {
+			GratefulShutdown(t, done)
+			return ctx.Err()
+		}
+		return err
 	}
 
 	// Poll until the statusbar last line reports "idle", up to startupDelay.
 	log.Debug().Msg("agy/usage: waiting for state=idle")
 	timedOut, err := pollUntilIdle(ctx, t, done, opts.startupDelay())
 	if err != nil {
-		return nil, err
+		return nil, handleErr(err)
 	}
 	if timedOut {
 		log.Debug().Msg("agy/usage: startup idle timed out — proceeding anyway")
@@ -164,17 +172,17 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 
 	// Send the /usage command followed by Enter.
 	if err := t.SendString("/usage"); err != nil {
-		return nil, fmt.Errorf("sending /usage: %w", err)
+		return nil, handleErr(fmt.Errorf("sending /usage: %w", err))
 	}
 	if err := t.SendKeys(term.KeyEnter); err != nil {
-		return nil, fmt.Errorf("sending Enter: %w", err)
+		return nil, handleErr(fmt.Errorf("sending Enter: %w", err))
 	}
 
 	// Wait for the response to render.
 	select {
 	case <-time.After(opts.responseDelay()):
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, handleErr(ctx.Err())
 	case err := <-done:
 		return nil, fmt.Errorf("agy exited unexpectedly waiting for /usage response: %w", err)
 	}
@@ -183,19 +191,7 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 	log.Debug().Msg("agy/usage: got usage")
 
 	// Exit: Esc, then Ctrl-D twice.
-	_ = t.SendKeys(term.KeyEsc)
-	time.Sleep(200 * time.Millisecond)
-	_ = t.SendKeys(term.KeyCtrlD)
-	time.Sleep(200 * time.Millisecond)
-	_ = t.SendKeys(term.KeyCtrlD)
-
-	// Wait for clean exit (best-effort; don't block indefinitely).
-	exitCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	select {
-	case <-done:
-	case <-exitCtx.Done():
-	}
+	CleanExit(t, done)
 
 	return parseUsage(lines)
 }

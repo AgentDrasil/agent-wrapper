@@ -61,8 +61,18 @@ var agyCmd = &cobra.Command{
 			return nil
 		}
 
-		_ = prompt
-		// TODO: implement non-usage path
+		result, err := agy.Prompt(context.Background(), prompt, agy.PromptOptions{
+			Dir:       dir,
+			SessionID: agySession,
+		})
+		if err != nil {
+			return fmt.Errorf("running prompt: %w", err)
+		}
+		out, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return fmt.Errorf("encoding result: %w", err)
+		}
+		fmt.Println(string(out))
 		return nil
 	},
 }

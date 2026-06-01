@@ -42,14 +42,24 @@ func (o *UsageOptions) startupDelay() time.Duration {
 	return 10 * time.Second
 }
 
-// isIdle returns true when the last line of lines (the statusbar) indicates
+// isIdle returns true when the statusbar line (the last non-empty line) indicates
 // the system is fully at rest: state=idle, zero background tasks, and zero
 // active subagents, as produced by agystatusline.
 func isIdle(lines []string) bool {
 	if len(lines) == 0 {
 		return false
 	}
-	last := lines[len(lines)-1]
+	var last string
+	for i := len(lines) - 1; i >= 0; i-- {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed != "" {
+			last = trimmed
+			break
+		}
+	}
+	if last == "" {
+		return false
+	}
 	fields := strings.Fields(last)
 
 	// Labeled format: "state: idle | ... | tasks: 0 | subagents: 0"
@@ -66,6 +76,32 @@ func isIdle(lines []string) bool {
 		return strings.EqualFold(fields[0], "idle")
 	}
 	return false
+}
+
+// pollUntilIdle polls t.Scrollback() every pollInterval until isIdle returns
+// true or timeout elapses. The timeout is soft: expiry causes the function to
+// return (timedOut=true, err=nil) so the caller can decide whether to proceed
+// or abort. ctx cancellation and unexpected agy exit are hard errors.
+func pollUntilIdle(ctx context.Context, t *term.Term, done <-chan error, timeout time.Duration) (timedOut bool, err error) {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	tick := time.NewTicker(pollInterval)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-tick.C:
+			if isIdle(t.Scrollback()) {
+				return false, nil
+			}
+		case <-timer.C:
+			return true, nil
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case err := <-done:
+			return false, fmt.Errorf("agy exited unexpectedly: %w", err)
+		}
+	}
 }
 
 // extractLabeledInt scans whitespace-split fields for a token equal to key
@@ -89,7 +125,7 @@ func (o *UsageOptions) responseDelay() time.Duration {
 	if o.ResponseDelay > 0 {
 		return o.ResponseDelay
 	}
-	return 5 * time.Second
+	return 1 * time.Second
 }
 
 // Usage launches agy in a headless terminal, sends the "/usage" command,
@@ -115,27 +151,15 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 	}
 
 	// Poll until the statusbar last line reports "idle", up to startupDelay.
-	readyTimer := time.NewTimer(opts.startupDelay())
-	defer readyTimer.Stop()
-	pollTick := time.NewTicker(pollInterval)
-	defer pollTick.Stop()
 	log.Debug().Msg("agy: waiting for state=idle")
-waitIdle:
-	for {
-		select {
-		case <-pollTick.C:
-			if isIdle(t.Scrollback()) {
-				log.Debug().Msg("agy: state=idle")
-				break waitIdle
-			}
-		case <-readyTimer.C:
-			// Timeout reached — proceed anyway and let /usage fail visibly.
-			break waitIdle
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case err := <-done:
-			return nil, fmt.Errorf("agy exited unexpectedly during startup: %w", err)
-		}
+	timedOut, err := pollUntilIdle(ctx, t, done, opts.startupDelay())
+	if err != nil {
+		return nil, err
+	}
+	if timedOut {
+		log.Debug().Msg("agy: startup idle timed out — proceeding anyway")
+	} else {
+		log.Debug().Msg("agy: state=idle")
 	}
 
 	// Send the /usage command followed by Enter.

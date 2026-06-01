@@ -57,7 +57,7 @@ func TestIsIdle(t *testing.T) {
 		{
 			name:  "last line is blank",
 			lines: []string{"state: idle | tasks: 0 | subagents: 0", ""},
-			want:  false,
+			want:  true,
 		},
 		{
 			name:  "case-insensitive state label",

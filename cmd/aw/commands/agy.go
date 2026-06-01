@@ -19,6 +19,7 @@ var (
 	agyPrompt  string
 	agySession string
 	agyUsage   bool
+	agyModel   string
 )
 
 var agyCmd = &cobra.Command{
@@ -64,6 +65,7 @@ var agyCmd = &cobra.Command{
 		result, err := agy.Prompt(context.Background(), prompt, agy.PromptOptions{
 			Dir:       dir,
 			SessionID: agySession,
+			Model:     agyModel,
 		})
 		if err != nil {
 			return fmt.Errorf("running prompt: %w", err)
@@ -113,4 +115,5 @@ func init() {
 	agyCmd.Flags().StringVarP(&agyPrompt, "prompt", "p", "", "Prompt to send to the agent (or pipe via stdin)")
 	agyCmd.Flags().StringVarP(&agySession, "session", "s", "", "Session ID to resume")
 	agyCmd.Flags().BoolVar(&agyUsage, "usage", false, "Print token usage information")
+	agyCmd.Flags().StringVarP(&agyModel, "model", "m", "", "Model to select for the session")
 }

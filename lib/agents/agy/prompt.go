@@ -32,6 +32,10 @@ type PromptOptions struct {
 	// ResponseDelay is the maximum time to wait for agy to return to idle
 	// after each prompt send. Defaults to 300 seconds (5 min).
 	ResponseDelay time.Duration
+
+	// Model is the name of the model to select (e.g., "Gemini 3.5 Flash (Low)").
+	// When non-empty, SelectModel is run before sending the prompt.
+	Model string
 }
 
 func (o *PromptOptions) startupDelay() time.Duration {
@@ -111,6 +115,13 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 		log.Warn().Msg("agy/prompt: startup idle (#1) timed out")
 	} else {
 		log.Debug().Msg("agy/prompt: startup idle reached (#1)")
+	}
+
+	// ── select model if requested ─────────────────────────────────────────────
+	if opts.Model != "" {
+		if err := SelectModel(ctx, t, done, opts.Model); err != nil {
+			return nil, fmt.Errorf("selecting model %q: %w", opts.Model, err)
+		}
 	}
 
 	// ── send the prompt ───────────────────────────────────────────────────────

@@ -127,6 +127,37 @@ func TestRun(t *testing.T) {
 			wantContain: []string{"state: idle", "tasks: 0", "subagents: 0"},
 		},
 		{
+			name: "idle with model display name",
+			input: `{
+				"agent_state": "idle",
+				"context_window": {
+					"total_input_tokens": 100000,
+					"context_window_size": 1048576,
+					"remaining_percentage": 90.0
+				},
+				"model": {
+					"id": "gemini-1.5-pro",
+					"display_name": "Gemini 1.5 Pro"
+				}
+			}`,
+			wantContain: []string{"state: idle", "tasks: 0", "subagents: 0", "Gemini 1.5 Pro"},
+		},
+		{
+			name: "idle with model id only",
+			input: `{
+				"agent_state": "idle",
+				"context_window": {
+					"total_input_tokens": 100000,
+					"context_window_size": 1048576,
+					"remaining_percentage": 90.0
+				},
+				"model": {
+					"id": "gemini-1.5-flash"
+				}
+			}`,
+			wantContain: []string{"state: idle", "tasks: 0", "subagents: 0", "gemini-1.5-flash"},
+		},
+		{
 			name:    "invalid JSON",
 			input:   `not json`,
 			wantErr: true,

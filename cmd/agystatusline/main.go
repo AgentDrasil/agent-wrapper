@@ -2,7 +2,7 @@
 // a custom status line command via stdin, extracts the fields we care about,
 // and prints a compact one-line status string to stdout:
 //
-//	state: <agent_state> | input_tokens: <total_input_tokens> | max: <context_window_size> | remaining: <remaining>% | tasks: <N> | subagents: <N>
+//	state: <agent_state> | input_tokens: <total_input_tokens> | max: <context_window_size> | remaining: <remaining>% | tasks: <N> | subagents: <N> [| <model_name>]
 //
 // The remaining-percentage segment is coloured green (≥ 80 %), yellow (≥ 50 %),
 // or red (< 50 %) using ANSI escape codes so the value stands out in the
@@ -32,6 +32,12 @@ type payload struct {
 	ContextWindow   contextWindow    `json:"context_window"`
 	BackgroundTasks []backgroundTask `json:"background_tasks"`
 	Subagents       []subagent       `json:"subagents"`
+	Model           modelInfo        `json:"model"`
+}
+
+type modelInfo struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
 }
 
 type contextWindow struct {
@@ -83,7 +89,13 @@ func run(r io.Reader) (string, error) {
 	}
 
 	color := remainingColor(p.ContextWindow.RemainingPercentage)
-	return fmt.Sprintf("state: %s | input_tokens: %d | max: %d | remaining: %s%.1f%%%s | tasks: %d | subagents: %d",
+
+	modelName := p.Model.DisplayName
+	if modelName == "" {
+		modelName = p.Model.ID
+	}
+
+	res := fmt.Sprintf("state: %s | input_tokens: %d | max: %d | remaining: %s%.1f%%%s | tasks: %d | subagents: %d",
 		p.AgentState,
 		p.ContextWindow.TotalInputTokens,
 		p.ContextWindow.ContextWindowSize,
@@ -92,7 +104,11 @@ func run(r io.Reader) (string, error) {
 		ansiReset,
 		len(p.BackgroundTasks),
 		countActiveSubagents(p.Subagents),
-	), nil
+	)
+	if modelName != "" {
+		res += fmt.Sprintf(" | %s", modelName)
+	}
+	return res, nil
 }
 
 // countActiveSubagents returns the number of subagents that are not idle.

@@ -2,7 +2,7 @@
 // a custom status line command via stdin, extracts the fields we care about,
 // and prints a compact one-line status string to stdout:
 //
-//	<agent_state> | <total_input_tokens> | <context_window_size> | <remaining>%
+//	state: <agent_state> | input_tokens: <total_input_tokens> | max: <context_window_size> | remaining: <remaining>% | tasks: <N> | subagents: <N>
 //
 // The remaining-percentage segment is coloured green (≥ 80 %), yellow (≥ 50 %),
 // or red (< 50 %) using ANSI escape codes so the value stands out in the
@@ -23,18 +23,33 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 // payload is the subset of the JSON document we care about.
 type payload struct {
-	AgentState    string        `json:"agent_state"`
-	ContextWindow contextWindow `json:"context_window"`
+	AgentState      string           `json:"agent_state"`
+	ContextWindow   contextWindow    `json:"context_window"`
+	BackgroundTasks []backgroundTask `json:"background_tasks"`
+	Subagents       []subagent       `json:"subagents"`
 }
 
 type contextWindow struct {
 	TotalInputTokens    int     `json:"total_input_tokens"`
 	ContextWindowSize   int     `json:"context_window_size"`
 	RemainingPercentage float64 `json:"remaining_percentage"`
+}
+
+type backgroundTask struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Index  int    `json:"index"`
+}
+
+type subagent struct {
+	Name   string `json:"name"`
+	Role   string `json:"role"`
+	Status string `json:"status"`
 }
 
 // ANSI colour helpers.
@@ -68,14 +83,27 @@ func run(r io.Reader) (string, error) {
 	}
 
 	color := remainingColor(p.ContextWindow.RemainingPercentage)
-	return fmt.Sprintf("%s | %d | %d | %s%.1f%%%s",
+	return fmt.Sprintf("state: %s | input_tokens: %d | max: %d | remaining: %s%.1f%%%s | tasks: %d | subagents: %d",
 		p.AgentState,
 		p.ContextWindow.TotalInputTokens,
 		p.ContextWindow.ContextWindowSize,
 		color,
 		p.ContextWindow.RemainingPercentage,
 		ansiReset,
+		len(p.BackgroundTasks),
+		countActiveSubagents(p.Subagents),
 	), nil
+}
+
+// countActiveSubagents returns the number of subagents that are not idle.
+func countActiveSubagents(subagents []subagent) int {
+	n := 0
+	for _, s := range subagents {
+		if !strings.EqualFold(s.Status, "idle") {
+			n++
+		}
+	}
+	return n
 }
 
 func main() {

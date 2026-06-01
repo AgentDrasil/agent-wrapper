@@ -28,7 +28,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 91.58
 				}
 			}`,
-			wantContain: []string{"idle", "88244", "200000", "91.6%", ansiGreen},
+			wantContain: []string{"state: idle", "input_tokens: 88244", "max: 200000", "remaining: ", "91.6%", ansiGreen, "tasks: 0", "subagents: 0"},
 		},
 		{
 			name: "thinking with medium remaining (yellow)",
@@ -40,7 +40,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 52.0
 				}
 			}`,
-			wantContain: []string{"thinking", "500000", "1000000", "52.0%", ansiYellow},
+			wantContain: []string{"state: thinking", "input_tokens: 500000", "max: 1000000", "remaining: ", "52.0%", ansiYellow, "tasks: 0", "subagents: 0"},
 		},
 		{
 			name: "working with low remaining (red)",
@@ -52,7 +52,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 5.5
 				}
 			}`,
-			wantContain: []string{"working", "990000", "1048576", "5.5%", ansiRed},
+			wantContain: []string{"state: working", "input_tokens: 990000", "max: 1048576", "remaining: ", "5.5%", ansiRed, "tasks: 0", "subagents: 0"},
 		},
 		{
 			name: "exactly 80 percent remaining (green)",
@@ -64,7 +64,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 80.0
 				}
 			}`,
-			wantContain: []string{"tool_use", "200000", "250000", "80.0%", ansiGreen},
+			wantContain: []string{"state: tool_use", "input_tokens: 200000", "max: 250000", "remaining: ", "80.0%", ansiGreen, "tasks: 0", "subagents: 0"},
 		},
 		{
 			name: "exactly 50 percent remaining (yellow)",
@@ -76,7 +76,55 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 50.0
 				}
 			}`,
-			wantContain: []string{"initializing", "524288", "1048576", "50.0%", ansiYellow},
+			wantContain: []string{"state: initializing", "input_tokens: 524288", "max: 1048576", "remaining: ", "50.0%", ansiYellow, "tasks: 0", "subagents: 0"},
+		},
+		{
+			name: "working with background tasks",
+			input: `{
+				"agent_state": "working",
+				"context_window": {
+					"total_input_tokens": 100000,
+					"context_window_size": 1048576,
+					"remaining_percentage": 90.0
+				},
+				"background_tasks": [
+					{"name": "build", "status": "running", "index": 1},
+					{"name": "test",  "status": "running", "index": 2}
+				]
+			}`,
+			wantContain: []string{"state: working", "tasks: 2", "subagents: 0"},
+		},
+		{
+			name: "thinking with active subagents",
+			input: `{
+				"agent_state": "thinking",
+				"context_window": {
+					"total_input_tokens": 100000,
+					"context_window_size": 1048576,
+					"remaining_percentage": 90.0
+				},
+				"subagents": [
+					{"name": "research", "role": "Researcher", "status": "working"},
+					{"name": "coder",    "role": "Coder",      "status": "idle"}
+				]
+			}`,
+			wantContain: []string{"state: thinking", "tasks: 0", "subagents: 1"},
+		},
+		{
+			name: "idle with all subagents idle",
+			input: `{
+				"agent_state": "idle",
+				"context_window": {
+					"total_input_tokens": 100000,
+					"context_window_size": 1048576,
+					"remaining_percentage": 90.0
+				},
+				"subagents": [
+					{"name": "research", "role": "Researcher", "status": "idle"},
+					{"name": "coder",    "role": "Coder",      "status": "idle"}
+				]
+			}`,
+			wantContain: []string{"state: idle", "tasks: 0", "subagents: 0"},
 		},
 		{
 			name:    "invalid JSON",

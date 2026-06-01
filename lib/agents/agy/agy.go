@@ -42,18 +42,47 @@ func (o *UsageOptions) startupDelay() time.Duration {
 	return 10 * time.Second
 }
 
-// isIdle returns true when the last line of lines (the statusbar) has
-// "idle" as its first whitespace-separated token.
+// isIdle returns true when the last line of lines (the statusbar) indicates
+// the system is fully at rest: state=idle, zero background tasks, and zero
+// active subagents, as produced by agystatusline.
 func isIdle(lines []string) bool {
 	if len(lines) == 0 {
 		return false
 	}
 	last := lines[len(lines)-1]
 	fields := strings.Fields(last)
-	if len(fields) == 0 {
-		return false
+
+	// Labeled format: "state: idle | ... | tasks: 0 | subagents: 0"
+	if len(fields) >= 2 && strings.EqualFold(fields[0], "state:") {
+		if !strings.EqualFold(fields[1], "idle") {
+			return false
+		}
+		return extractLabeledInt(fields, "tasks:") == 0 &&
+			extractLabeledInt(fields, "subagents:") == 0
 	}
-	return strings.EqualFold(fields[0], "idle")
+
+	// Fallback: bare token for forward-compatibility.
+	if len(fields) >= 1 {
+		return strings.EqualFold(fields[0], "idle")
+	}
+	return false
+}
+
+// extractLabeledInt scans whitespace-split fields for a token equal to key
+// (e.g. "tasks:") and returns the integer value of the immediately following
+// token. Returns -1 if the key is not found or the value cannot be parsed.
+func extractLabeledInt(fields []string, key string) int {
+	for i, f := range fields {
+		if strings.EqualFold(f, key) && i+1 < len(fields) {
+			// Strip a trailing "|" separator that may be part of the same token.
+			v := strings.TrimRight(fields[i+1], "|")
+			var n int
+			if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
+				return n
+			}
+		}
+	}
+	return -1
 }
 
 func (o *UsageOptions) responseDelay() time.Duration {

@@ -147,19 +147,19 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 
 	done, err := t.RunCommandInDir(ctx, argv, opts.Dir, nil)
 	if err != nil {
-		return nil, fmt.Errorf("launching agy: %w", err)
+		return nil, fmt.Errorf("launching agy/usage: %w", err)
 	}
 
 	// Poll until the statusbar last line reports "idle", up to startupDelay.
-	log.Debug().Msg("agy: waiting for state=idle")
+	log.Debug().Msg("agy/usage: waiting for state=idle")
 	timedOut, err := pollUntilIdle(ctx, t, done, opts.startupDelay())
 	if err != nil {
 		return nil, err
 	}
 	if timedOut {
-		log.Debug().Msg("agy: startup idle timed out — proceeding anyway")
+		log.Debug().Msg("agy/usage: startup idle timed out — proceeding anyway")
 	} else {
-		log.Debug().Msg("agy: state=idle")
+		log.Debug().Msg("agy/usage: state=idle")
 	}
 
 	// Send the /usage command followed by Enter.
@@ -180,7 +180,7 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 	}
 
 	lines := t.Scrollback()
-	log.Debug().Msg("agy: got usage")
+	log.Debug().Msg("agy/usage: got usage")
 
 	// Exit: Esc, then Ctrl-D twice.
 	_ = t.SendKeys(term.KeyEsc)

@@ -7,12 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/AgentDrasil/agent-wrapper/lib/term"
 )
 
 const (
-	termCols    uint16        = 220
-	termRows    uint16        = 50
+	termCols     uint16        = 220
+	termRows     uint16        = 50
 	pollInterval time.Duration = 200 * time.Millisecond
 )
 
@@ -88,11 +90,13 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 	defer readyTimer.Stop()
 	pollTick := time.NewTicker(pollInterval)
 	defer pollTick.Stop()
+	log.Debug().Msg("agy: waiting for state=idle")
 waitIdle:
 	for {
 		select {
 		case <-pollTick.C:
 			if isIdle(t.Scrollback()) {
+				log.Debug().Msg("agy: state=idle")
 				break waitIdle
 			}
 		case <-readyTimer.C:
@@ -123,6 +127,7 @@ waitIdle:
 	}
 
 	lines := t.Scrollback()
+	log.Debug().Msg("agy: got usage")
 
 	// Exit: Esc, then Ctrl-D twice.
 	_ = t.SendKeys(term.KeyEsc)

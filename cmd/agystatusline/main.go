@@ -67,13 +67,17 @@ func run(r io.Reader, w io.Writer) error {
 	}
 
 	color := remainingColor(p.ContextWindow.RemainingPercentage)
-	fmt.Fprintf(w, "%s | %d | %s%.1f%%%s\n",
+	_, err = fmt.Fprintf(w, "%s | %d | %s%.1f%%%s\n",
 		p.AgentState,
 		p.ContextWindow.TotalInputTokens,
 		color,
 		p.ContextWindow.RemainingPercentage,
 		ansiReset,
 	)
+
+	if err != nil {
+		return fmt.Errorf("writing failed: %v", err)
+	}
 	return nil
 }
 

@@ -3,14 +3,29 @@ package commands
 import (
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
+
+var debug bool
 
 var rootCmd = &cobra.Command{
 	Use:   "aw",
 	Short: "Agent Wrapper CLI",
 	Long:  `aw is the command-line interface for Agent Wrapper.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		zerolog.TimeFieldFormat = time.RFC3339
+		consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}
+		log.Logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
+		if debug {
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		} else {
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		}
+	},
 }
 
 // Execute runs the root command.
@@ -22,5 +37,6 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
 	rootCmd.AddCommand(agyCmd)
 }

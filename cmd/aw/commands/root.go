@@ -8,15 +8,20 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+
+	"github.com/AgentDrasil/agent-wrapper/cmd/aw/config"
 )
 
 var debug bool
+
+// GlobalConfig is the parsed configuration loaded from the YAML file.
+var GlobalConfig *config.Config
 
 var rootCmd = &cobra.Command{
 	Use:   "aw",
 	Short: "Agent Wrapper CLI",
 	Long:  `aw is the command-line interface for Agent Wrapper.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		zerolog.TimeFieldFormat = time.RFC3339
 		consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}
 		log.Logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
@@ -25,6 +30,13 @@ var rootCmd = &cobra.Command{
 		} else {
 			zerolog.SetGlobalLevel(zerolog.InfoLevel)
 		}
+
+		var err error
+		GlobalConfig, err = config.LoadConfig()
+		if err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+		return nil
 	},
 }
 

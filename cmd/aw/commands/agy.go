@@ -57,12 +57,24 @@ var agyCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("fetching usage: %w", err)
 			}
-			out, err := json.MarshalIndent(entries, "", "  ")
+			var filtered []agy.ModelUsage
+			for _, entry := range entries {
+				if GlobalConfig.IsModelAllowed("agy", entry.Model) {
+					filtered = append(filtered, entry)
+				}
+			}
+			out, err := json.MarshalIndent(filtered, "", "  ")
 			if err != nil {
 				return fmt.Errorf("encoding usage: %w", err)
 			}
 			fmt.Println(string(out))
 			return nil
+		}
+
+		if agyModel != "" {
+			if !GlobalConfig.IsModelAllowed("agy", agyModel) {
+				return fmt.Errorf("model %q is not allowed by config", agyModel)
+			}
 		}
 
 		result, err := agy.Prompt(ctx, prompt, agy.PromptOptions{

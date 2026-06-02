@@ -193,5 +193,5 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 	// Exit: Esc, then Ctrl-D twice.
 	CleanExit(t, done)
 
-	return parseUsage(lines)
+	return parseUsage(lines, time.Now())
 }

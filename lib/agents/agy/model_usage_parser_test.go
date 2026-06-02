@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,23 +61,26 @@ func makeBlock(t *testing.T, model string, pct int, status string) []string {
 func TestParseUsage_FullSample(t *testing.T) {
 	t.Parallel()
 
-	entries, err := parseUsage(toLines(usageOutput))
+	baseTime := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	entries, err := parseUsage(toLines(usageOutput), baseTime)
 	require.NoError(t, err)
 	require.Len(t, entries, 8)
 
 	// Spot-check a fully-available model.
 	assert.Equal(t, "Gemini 3.5 Flash (Medium)", entries[0].Model)
 	assert.InDelta(t, 1.0, entries[0].Remaining, 1e-9)
-	assert.Empty(t, entries[0].RefreshTime)
+	assert.Zero(t, entries[0].RefreshDate)
 
 	// Spot-check a partially-used model.
 	assert.Equal(t, "Claude Sonnet 4.6 (Thinking)", entries[5].Model)
 	assert.InDelta(t, 0.8, entries[5].Remaining, 1e-9)
-	assert.Equal(t, "1h 23m", entries[5].RefreshTime)
+	assert.Equal(t, baseTime.Add(1*time.Hour+23*time.Minute).Unix(), entries[5].RefreshDate)
 }
 
 func TestParseUsage_TableDriven(t *testing.T) {
 	t.Parallel()
+
+	baseTime := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		name        string
@@ -105,7 +109,7 @@ func TestParseUsage_TableDriven(t *testing.T) {
 `,
 			wantLen: 1,
 			wantEntries: []ModelUsage{
-				{Model: "My Model B", Remaining: 0.8, RefreshTime: "2h 5m"},
+				{Model: "My Model B", Remaining: 0.8, RefreshDate: baseTime.Add(2*time.Hour + 5*time.Minute).Unix()},
 			},
 		},
 		{
@@ -117,7 +121,7 @@ func TestParseUsage_TableDriven(t *testing.T) {
 `,
 			wantLen: 1,
 			wantEntries: []ModelUsage{
-				{Model: "Exhausted Model", Remaining: 0.0, RefreshTime: "59m"},
+				{Model: "Exhausted Model", Remaining: 0.0, RefreshDate: baseTime.Add(59 * time.Minute).Unix()},
 			},
 		},
 		{
@@ -134,7 +138,7 @@ func TestParseUsage_TableDriven(t *testing.T) {
 			wantLen: 2,
 			wantEntries: []ModelUsage{
 				{Model: "Full Model", Remaining: 1.0},
-				{Model: "Half Model", Remaining: 0.5, RefreshTime: "30m"},
+				{Model: "Half Model", Remaining: 0.5, RefreshDate: baseTime.Add(30 * time.Minute).Unix()},
 			},
 		},
 		{
@@ -163,14 +167,14 @@ func TestParseUsage_TableDriven(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			entries, err := parseUsage(toLines(tt.input))
+			entries, err := parseUsage(toLines(tt.input), baseTime)
 			require.NoError(t, err)
 			require.Len(t, entries, tt.wantLen)
 
 			for i, want := range tt.wantEntries {
 				assert.Equal(t, want.Model, entries[i].Model, "entries[%d].Model", i)
 				assert.InDelta(t, want.Remaining, entries[i].Remaining, 1e-9, "entries[%d].Remaining", i)
-				assert.Equal(t, want.RefreshTime, entries[i].RefreshTime, "entries[%d].RefreshTime", i)
+				assert.Equal(t, want.RefreshDate, entries[i].RefreshDate, "entries[%d].RefreshDate", i)
 			}
 		})
 	}
@@ -178,6 +182,8 @@ func TestParseUsage_TableDriven(t *testing.T) {
 
 func TestParseUsage_RemainingFraction(t *testing.T) {
 	t.Parallel()
+
+	baseTime := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
 		pct      int
@@ -195,7 +201,7 @@ func TestParseUsage_RemainingFraction(t *testing.T) {
 			t.Parallel()
 
 			lines := makeBlock(t, "Model X", tt.pct, "Quota available")
-			entries, err := parseUsage(lines)
+			entries, err := parseUsage(lines, baseTime)
 			require.NoError(t, err)
 			require.Len(t, entries, 1)
 			assert.InDelta(t, tt.expected, entries[0].Remaining, 1e-9)

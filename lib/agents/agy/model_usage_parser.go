@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ModelUsage represents the quota status for a single model.
@@ -15,9 +16,9 @@ type ModelUsage struct {
 	// 1.0 means fully available; 0.8 means 80% remaining.
 	Remaining float64 `json:"remaining"`
 
-	// RefreshTime is the human-readable time until the quota resets,
-	// e.g. "1h 23m". Empty when quota is fully available.
-	RefreshTime string `json:"refresh_time,omitempty"`
+	// RefreshDate is the unix timestamp (seconds since epoch) when the quota resets.
+	// 0 when quota is fully available.
+	RefreshDate int64 `json:"refresh_date,omitempty"`
 }
 
 var (
@@ -30,6 +31,30 @@ var (
 	// progress-bar lines contain block-drawing characters.
 	reBarLine = regexp.MustCompile(`[█░]`)
 )
+
+// parseDuration parses a string like "1h 23m", "59m", "2h" into a time.Duration.
+func parseDuration(s string) (time.Duration, error) {
+	s = strings.ReplaceAll(s, " ", "")
+	var total time.Duration
+	dIdx := strings.Index(s, "d")
+	if dIdx != -1 {
+		daysStr := s[:dIdx]
+		days, err := strconv.Atoi(daysStr)
+		if err != nil {
+			return 0, err
+		}
+		total += time.Duration(days) * 24 * time.Hour
+		s = s[dIdx+1:]
+	}
+	if s != "" {
+		rest, err := time.ParseDuration(s)
+		if err != nil {
+			return 0, err
+		}
+		total += rest
+	}
+	return total, nil
+}
 
 // parseUsage parses the raw scrollback lines returned by [Usage] into a slice
 // of [ModelUsage] entries.
@@ -45,12 +70,12 @@ var (
 //	<Model Name>
 //	███ … 100%
 //	Quota available
-func parseUsage(lines []string) ([]ModelUsage, error) {
+func parseUsage(lines []string, now time.Time) ([]ModelUsage, error) {
 	blocks := splitBlocks(lines)
 
 	var result []ModelUsage
 	for _, block := range blocks {
-		entry, ok := parseBlock(block)
+		entry, ok := parseBlock(block, now)
 		if !ok {
 			continue
 		}
@@ -83,7 +108,7 @@ func splitBlocks(lines []string) [][]string {
 // parseBlock attempts to extract a ModelUsage from a single line-block.
 // Returns (entry, true) on success or (zero, false) if the block doesn't look
 // like a usage entry.
-func parseBlock(block []string) (ModelUsage, bool) {
+func parseBlock(block []string, now time.Time) (ModelUsage, bool) {
 	if len(block) < 2 {
 		return ModelUsage{}, false
 	}
@@ -116,14 +141,18 @@ func parseBlock(block []string) (ModelUsage, bool) {
 	}
 
 	// Find the status line for the refresh time.
-	refreshTime := ""
+	var refreshDate int64
 	for _, line := range block {
 		if strings.Contains(line, "Quota available") {
-			// refreshTime stays empty.
+			// refreshDate stays 0.
 			break
 		}
 		if m := reRefresh.FindStringSubmatch(line); m != nil {
-			refreshTime = strings.TrimSpace(m[1])
+			durStr := strings.TrimSpace(m[1])
+			dur, err := parseDuration(durStr)
+			if err == nil {
+				refreshDate = now.Add(dur).Unix()
+			}
 			break
 		}
 	}
@@ -131,6 +160,6 @@ func parseBlock(block []string) (ModelUsage, bool) {
 	return ModelUsage{
 		Model:       model,
 		Remaining:   remaining,
-		RefreshTime: refreshTime,
+		RefreshDate: refreshDate,
 	}, true
 }

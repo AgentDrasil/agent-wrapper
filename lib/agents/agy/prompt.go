@@ -13,64 +13,9 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/AgentDrasil/agent-wrapper/lib/agents"
 	"github.com/AgentDrasil/agent-wrapper/lib/term"
 )
-
-// PromptOptions controls how [Prompt] behaves.
-type PromptOptions struct {
-	// Dir is the working directory passed to agy via --cwd.
-	Dir string
-
-	// SessionID is the conversation ID to resume. When empty a new UUID v4 is
-	// generated so that agy is always launched with --conversation=<id>.
-	SessionID string
-
-	// StartupDelay is the maximum time to wait for agy's statusbar to report
-	// "idle" before sending the prompt. Defaults to 60 seconds.
-	StartupDelay time.Duration
-
-	// ResponseDelay is the maximum time to wait for agy to return to idle
-	// after each prompt send. Defaults to 300 seconds (5 min).
-	ResponseDelay time.Duration
-
-	// Model is the name of the model to select (e.g., "Gemini 3.5 Flash (Low)").
-	// When non-empty, SelectModel is run before sending the prompt.
-	Model string
-}
-
-func (o *PromptOptions) startupDelay() time.Duration {
-	if o.StartupDelay > 0 {
-		return o.StartupDelay
-	}
-	return 10 * time.Second
-}
-
-func (o *PromptOptions) responseDelay() time.Duration {
-	if o.ResponseDelay > 0 {
-		return o.ResponseDelay
-	}
-	return 300 * time.Second
-}
-
-// PromptResult is the structured response from a [Prompt] call.
-type PromptResult struct {
-	// SessionID is the conversation / session identifier used for this run.
-	SessionID string `json:"session_id"`
-
-	// InputTokens is the value of input_tokens from the final statusline.
-	InputTokens int `json:"input_tokens"`
-
-	// MaxTokens is the value of max (context window size) from the final statusline.
-	MaxTokens int `json:"max_tokens"`
-
-	// Remaining is the fraction of remaining quota in [0, 1] from the final
-	// statusline, e.g. 0.916.
-	Remaining float64 `json:"remaining"`
-
-	// LastContent is the raw "content" field of the last line in the
-	// transcript JSONL file, giving the caller access to the full response.
-	LastContent string `json:"last_content"`
-}
 
 // Prompt launches agy in a headless terminal with --conversation=<sessionID>
 // and --dangerously-skip-permissions, sends the given prompt text, waits for
@@ -87,7 +32,7 @@ type PromptResult struct {
 //  7. Exit agy cleanly (Esc, Ctrl-D, Ctrl-D).
 //  8. Read the last line of ~/.gemini/antigravity-cli/brain/<sessionID>/.system_generated/logs/transcript.jsonl.
 //  9. Parse the statusline for token metadata and return a PromptResult.
-func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResult, error) {
+func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*agents.PromptResult, error) {
 	sessionID := opts.SessionID
 	isNewSession := sessionID == ""
 
@@ -117,7 +62,7 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 
 	// ── idle #1: wait for startup idle ────────────────────────────────────────
 	log.Debug().Msg("agy/prompt: waiting for startup idle (#1)")
-	if timedOut, err := pollUntilIdle(ctx, t, done, opts.startupDelay()); err != nil {
+	if timedOut, err := pollUntilIdle(ctx, t, done, opts.StartupDelayOrDefault()); err != nil {
 		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: startup idle (#1) timed out")
@@ -143,7 +88,7 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 
 	// ── idle #2: wait for the agent to finish responding ──────────────────────
 	log.Debug().Msg("agy/prompt: waiting for post-response idle (#2)")
-	if timedOut, err := pollUntilIdle(ctx, t, done, opts.responseDelay()); err != nil {
+	if timedOut, err := pollUntilIdle(ctx, t, done, opts.ResponseDelayOrDefault()); err != nil {
 		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: post-response idle (#2) timed out")
@@ -159,7 +104,7 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 	}
 
 	log.Debug().Msg("agy/prompt: waiting for double-check idle (#3)")
-	if timedOut, err := pollUntilIdle(ctx, t, done, opts.responseDelay()); err != nil {
+	if timedOut, err := pollUntilIdle(ctx, t, done, opts.ResponseDelayOrDefault()); err != nil {
 		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: double-check idle (#3) timed out")
@@ -196,7 +141,7 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 		lastContent = ""
 	}
 
-	return &PromptResult{
+	return &agents.PromptResult{
 		SessionID:   sessionID,
 		InputTokens: inputTokens,
 		MaxTokens:   maxTokens,

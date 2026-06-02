@@ -5,21 +5,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/AgentDrasil/agent-wrapper/lib/agents"
 )
-
-// ModelUsage represents the quota status for a single model.
-type ModelUsage struct {
-	// Model is the full model name, e.g. "Claude Sonnet 4.6 (Thinking)".
-	Model string `json:"model"`
-
-	// Remaining is the fraction of quota still available in [0, 1].
-	// 1.0 means fully available; 0.8 means 80% remaining.
-	Remaining float64 `json:"remaining"`
-
-	// RefreshDate is the unix timestamp (seconds since epoch) when the quota resets.
-	// 0 when quota is fully available.
-	RefreshDate int64 `json:"refresh_date,omitempty"`
-}
 
 var (
 	// matches the trailing "80%" or "100%" on a progress-bar line.
@@ -70,10 +58,10 @@ func parseDuration(s string) (time.Duration, error) {
 //	<Model Name>
 //	███ … 100%
 //	Quota available
-func parseUsage(lines []string, now time.Time) ([]ModelUsage, error) {
+func parseUsage(lines []string, now time.Time) ([]agents.ModelUsage, error) {
 	blocks := splitBlocks(lines)
 
-	var result []ModelUsage
+	var result []agents.ModelUsage
 	for _, block := range blocks {
 		entry, ok := parseBlock(block, now)
 		if !ok {
@@ -108,15 +96,15 @@ func splitBlocks(lines []string) [][]string {
 // parseBlock attempts to extract a ModelUsage from a single line-block.
 // Returns (entry, true) on success or (zero, false) if the block doesn't look
 // like a usage entry.
-func parseBlock(block []string, now time.Time) (ModelUsage, bool) {
+func parseBlock(block []string, now time.Time) (agents.ModelUsage, bool) {
 	if len(block) < 2 {
-		return ModelUsage{}, false
+		return agents.ModelUsage{}, false
 	}
 
 	// The first line is the model name; it must not contain a progress bar.
 	model := block[0]
 	if reBarLine.MatchString(model) {
-		return ModelUsage{}, false
+		return agents.ModelUsage{}, false
 	}
 
 	// Find the progress-bar line and extract the percentage.
@@ -137,7 +125,7 @@ func parseBlock(block []string, now time.Time) (ModelUsage, bool) {
 		break
 	}
 	if remaining == -1.0 {
-		return ModelUsage{}, false
+		return agents.ModelUsage{}, false
 	}
 
 	// Find the status line for the refresh time.
@@ -157,7 +145,7 @@ func parseBlock(block []string, now time.Time) (ModelUsage, bool) {
 		}
 	}
 
-	return ModelUsage{
+	return agents.ModelUsage{
 		Model:       model,
 		Remaining:   remaining,
 		RefreshDate: refreshDate,

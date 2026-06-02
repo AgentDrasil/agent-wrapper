@@ -7,26 +7,9 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"time"
+
+	"github.com/AgentDrasil/agent-wrapper/lib/agents"
 )
-
-// PromptOptions controls how Prompt behaves.
-type PromptOptions struct {
-	Dir           string
-	SessionID     string
-	StartupDelay  time.Duration
-	ResponseDelay time.Duration
-	Model         string
-}
-
-// PromptResult is the structured response from a Prompt call.
-type PromptResult struct {
-	SessionID   string  `json:"session_id"`
-	InputTokens int     `json:"input_tokens"`
-	MaxTokens   int     `json:"max_tokens"`
-	Remaining   float64 `json:"remaining"`
-	LastContent string  `json:"last_content"`
-}
 
 type opencodeLine struct {
 	Type      string `json:"type"`
@@ -43,7 +26,7 @@ type opencodeLine struct {
 }
 
 // Prompt sends a prompt to opencode and parses its JSONL output.
-func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResult, error) {
+func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*agents.PromptResult, error) {
 	argv := []string{"run", "--format", "json", "--dangerously-skip-permissions"}
 	if opts.SessionID != "" {
 		argv = append(argv, "--session", opts.SessionID)
@@ -127,7 +110,7 @@ func Prompt(ctx context.Context, prompt string, opts PromptOptions) (*PromptResu
 		}
 	}
 
-	return &PromptResult{
+	return &agents.PromptResult{
 		SessionID:   sessionID,
 		InputTokens: inputTokens,
 		MaxTokens:   maxTokens,

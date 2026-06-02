@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/AgentDrasil/agent-wrapper/lib/agents"
 	agy "github.com/AgentDrasil/agent-wrapper/lib/agents/agy"
 )
 
@@ -53,11 +54,11 @@ var agyCmd = &cobra.Command{
 		}
 
 		if agyUsage {
-			entries, err := agy.Usage(ctx, agy.UsageOptions{Dir: dir})
+			entries, err := agy.Usage(ctx, agents.UsageOptions{Dir: dir})
 			if err != nil {
 				return fmt.Errorf("fetching usage: %w", err)
 			}
-			var filtered []agy.ModelUsage
+			var filtered []agents.ModelUsage
 			for _, entry := range entries {
 				if GlobalConfig.IsModelAllowed("agy", entry.Model) {
 					filtered = append(filtered, entry)
@@ -77,7 +78,7 @@ var agyCmd = &cobra.Command{
 			}
 		}
 
-		result, err := agy.Prompt(ctx, prompt, agy.PromptOptions{
+		result, err := agy.Prompt(ctx, prompt, agents.PromptOptions{
 			Dir:       dir,
 			SessionID: agySession,
 			Model:     agyModel,

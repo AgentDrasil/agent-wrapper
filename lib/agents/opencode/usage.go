@@ -13,21 +13,9 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/AgentDrasil/agent-wrapper/lib/agents"
 )
-
-// UsageOptions controls how Usage behaves.
-type UsageOptions struct {
-	Dir           string
-	StartupDelay  time.Duration
-	ResponseDelay time.Duration
-}
-
-// ModelUsage represents the quota status for a single model.
-type ModelUsage struct {
-	Model       string  `json:"model"`
-	Remaining   float64 `json:"remaining"`
-	RefreshDate int64   `json:"refresh_date,omitempty"`
-}
 
 type zaiQuotaResponse struct {
 	Success bool   `json:"success"`
@@ -77,7 +65,7 @@ func loadZaiToken() string {
 }
 
 // Usage runs "opencode models", parses the list of models, and returns a ModelUsage list with Remaining = 1.0.
-func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
+func Usage(ctx context.Context, opts agents.UsageOptions) ([]agents.ModelUsage, error) {
 	cmd := exec.CommandContext(ctx, "opencode", "models")
 	if opts.Dir != "" {
 		cmd.Dir = opts.Dir
@@ -89,14 +77,14 @@ func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
 		return nil, fmt.Errorf("running opencode models: %w", err)
 	}
 
-	var result []ModelUsage
+	var result []agents.ModelUsage
 	lines := strings.Split(out.String(), "\n")
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
 			continue
 		}
-		result = append(result, ModelUsage{
+		result = append(result, agents.ModelUsage{
 			Model:     trimmed,
 			Remaining: 1.0,
 		})

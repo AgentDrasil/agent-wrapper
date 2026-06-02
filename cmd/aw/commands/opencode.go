@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/AgentDrasil/agent-wrapper/lib/agents"
 	opencode "github.com/AgentDrasil/agent-wrapper/lib/agents/opencode"
 )
 
@@ -51,11 +52,11 @@ var opencodeCmd = &cobra.Command{
 		}
 
 		if opencodeUsage {
-			entries, err := opencode.Usage(ctx, opencode.UsageOptions{Dir: dir})
+			entries, err := opencode.Usage(ctx, agents.UsageOptions{Dir: dir})
 			if err != nil {
 				return fmt.Errorf("fetching usage: %w", err)
 			}
-			var filtered []opencode.ModelUsage
+			var filtered []agents.ModelUsage
 			for _, entry := range entries {
 				if GlobalConfig.IsModelAllowed("opencode", entry.Model) {
 					filtered = append(filtered, entry)
@@ -75,7 +76,7 @@ var opencodeCmd = &cobra.Command{
 			}
 		}
 
-		result, err := opencode.Prompt(ctx, prompt, opencode.PromptOptions{
+		result, err := opencode.Prompt(ctx, prompt, agents.PromptOptions{
 			Dir:       dir,
 			SessionID: opencodeSession,
 			Model:     opencodeModel,

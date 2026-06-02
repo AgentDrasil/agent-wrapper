@@ -5,3 +5,9 @@ fmt:
 # Run golangci-lint
 lint:
     golangci-lint run
+
+# Install aw and agystatusline binaries
+install:
+    go install ./cmd/aw
+    go install ./cmd/agystatusline
+

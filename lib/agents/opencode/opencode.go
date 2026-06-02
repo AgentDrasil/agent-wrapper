@@ -1,8 +1,12 @@
 package opencode
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -38,10 +42,33 @@ type PromptResult struct {
 	LastContent string  `json:"last_content"`
 }
 
-// Usage is a TODO placeholder for fetching opencode usage.
+// Usage runs "opencode models", parses the list of models, and returns a ModelUsage list with Remaining = 1.0.
 func Usage(ctx context.Context, opts UsageOptions) ([]ModelUsage, error) {
-	// TODO: Implement opencode usage tracking
-	return nil, errors.New("opencode usage not implemented")
+	cmd := exec.CommandContext(ctx, "opencode", "models")
+	if opts.Dir != "" {
+		cmd.Dir = opts.Dir
+	}
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("running opencode models: %w", err)
+	}
+
+	var result []ModelUsage
+	lines := strings.Split(out.String(), "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		result = append(result, ModelUsage{
+			Model:     trimmed,
+			Remaining: 1.0,
+		})
+	}
+
+	return result, nil
 }
 
 // Prompt is a TODO placeholder for sending a prompt to opencode.

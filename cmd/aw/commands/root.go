@@ -51,4 +51,5 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
 	rootCmd.AddCommand(agyCmd)
+	rootCmd.AddCommand(opencodeCmd)
 }

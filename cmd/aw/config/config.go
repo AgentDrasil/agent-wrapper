@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 )
 
 // Config holds the allowed model patterns for each agent.

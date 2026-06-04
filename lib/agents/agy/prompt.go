@@ -43,6 +43,9 @@ func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*age
 	if !isNewSession {
 		argv = append(argv, "--conversation="+sessionID)
 	}
+	if opts.Model != "" {
+		argv = append(argv, "--model", opts.Model)
+	}
 	argv = append(argv, "--dangerously-skip-permissions")
 
 	log.Debug().Interface("argv", argv).Msg("agy/prompt: starting")
@@ -68,13 +71,6 @@ func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*age
 		log.Warn().Msg("agy/prompt: startup idle (#1) timed out")
 	} else {
 		log.Debug().Msg("agy/prompt: startup idle reached (#1)")
-	}
-
-	// ── select model if requested ─────────────────────────────────────────────
-	if opts.Model != "" {
-		if err := SelectModel(ctx, t, done, opts.Model); err != nil {
-			return nil, handleErr(fmt.Errorf("selecting model %q: %w", opts.Model, err))
-		}
 	}
 
 	// ── send the prompt ───────────────────────────────────────────────────────

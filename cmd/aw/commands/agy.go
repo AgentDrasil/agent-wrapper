@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/AgentDrasil/agent-wrapper/lib/agents"
@@ -16,11 +17,12 @@ import (
 )
 
 var (
-	agyDir     string
-	agyPrompt  string
-	agySession string
-	agyUsage   bool
-	agyModel   string
+	agyDir              string
+	agyPrompt           string
+	agySession          string
+	agyUsage            bool
+	agyModel            string
+	supportedAgyVersion = "1.0.5"
 )
 
 var agyCmd = &cobra.Command{
@@ -30,6 +32,12 @@ var agyCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if _, err := exec.LookPath("agy"); err != nil {
 			return fmt.Errorf("agy command not found in PATH: %w", err)
+		}
+
+		if v, err := agy.Version(cmd.Context()); err != nil {
+			log.Warn().Err(err).Msg("failed to check agy version")
+		} else if v != supportedAgyVersion {
+			log.Warn().Msgf("unsupported agy version: %s (supported is %s)", v, supportedAgyVersion)
 		}
 
 		dir := agyDir

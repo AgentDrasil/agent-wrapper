@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/AgentDrasil/agent-wrapper/lib/agents"
@@ -50,7 +51,12 @@ func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*age
 
 	log.Debug().Interface("argv", argv).Msg("agy/prompt: starting")
 
-	done, err := t.RunCommandInDir(context.Background(), argv, opts.Dir, nil)
+	awSessionID := opts.SessionID
+	if awSessionID == "" {
+		awSessionID = uuid.NewString()
+	}
+
+	done, err := t.RunCommandInDir(context.Background(), argv, opts.Dir, []string{"AW_SESSION_ID=" + awSessionID})
 	if err != nil {
 		return nil, fmt.Errorf("launching agy: %w", err)
 	}

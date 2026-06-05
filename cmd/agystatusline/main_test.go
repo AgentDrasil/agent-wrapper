@@ -1,8 +1,8 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -173,7 +173,7 @@ func TestRun(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := run(strings.NewReader(tt.input))
+			got, _, err := run([]byte(tt.input))
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -209,4 +209,13 @@ func TestRemainingColor(t *testing.T) {
 			assert.Equal(t, tt.want, remainingColor(tt.pct))
 		})
 	}
+}
+
+func TestPayloadSessionID(t *testing.T) {
+	t.Parallel()
+	input := `{"session_id": "test-session-123", "agent_state": "idle"}`
+	var p payload
+	err := json.Unmarshal([]byte(input), &p)
+	require.NoError(t, err)
+	assert.Equal(t, "test-session-123", p.SessionID)
 }

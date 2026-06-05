@@ -23,11 +23,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 // payload is the subset of the JSON document we care about.
 type payload struct {
+	SessionID       string           `json:"session_id"`
 	AgentState      string           `json:"agent_state"`
 	ContextWindow   contextWindow    `json:"context_window"`
 	BackgroundTasks []backgroundTask `json:"background_tasks"`
@@ -77,15 +79,10 @@ func remainingColor(pct float64) string {
 	}
 }
 
-func run(r io.Reader) (string, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return "", fmt.Errorf("reading stdin: %w", err)
-	}
-
+func run(data []byte) (string, payload, error) {
 	var p payload
 	if err := json.Unmarshal(data, &p); err != nil {
-		return "", fmt.Errorf("parsing JSON: %w", err)
+		return "", p, fmt.Errorf("parsing JSON: %w", err)
 	}
 
 	color := remainingColor(p.ContextWindow.RemainingPercentage)
@@ -108,7 +105,7 @@ func run(r io.Reader) (string, error) {
 	if modelName != "" {
 		res += fmt.Sprintf(" | %s", modelName)
 	}
-	return res, nil
+	return res, p, nil
 }
 
 // countActiveSubagents returns the number of subagents that are not idle.
@@ -123,10 +120,27 @@ func countActiveSubagents(subagents []subagent) int {
 }
 
 func main() {
-	line, err := run(os.Stdin)
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "agystatusline: reading stdin: %v\n", err)
+		os.Exit(1)
+	}
+
+	line, _, err := run(data)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "agystatusline: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println(line)
+
+	if sessionID := os.Getenv("AW_SESSION_ID"); sessionID != "" {
+		if err := os.MkdirAll("/tmp/agystatusline", 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "agystatusline: creating directory: %v\n", err)
+		} else {
+			filePath := filepath.Join("/tmp/agystatusline", sessionID+".json")
+			if err := os.WriteFile(filePath, data, 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "agystatusline: writing statusline JSON: %v\n", err)
+			}
+		}
+	}
 }

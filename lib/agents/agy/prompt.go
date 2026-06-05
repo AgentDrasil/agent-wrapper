@@ -71,7 +71,7 @@ func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*age
 
 	// ── idle #1: wait for startup idle ────────────────────────────────────────
 	log.Debug().Msg("agy/prompt: waiting for startup idle (#1)")
-	if timedOut, err := pollUntilIdle(ctx, t, done, opts.StartupDelayOrDefault()); err != nil {
+	if timedOut, err := pollUntilIdle(ctx, awSessionID, done, opts.StartupDelayOrDefault()); err != nil {
 		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: startup idle (#1) timed out")
@@ -90,7 +90,7 @@ func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*age
 
 	// ── idle #2: wait for the agent to finish responding ──────────────────────
 	log.Debug().Msg("agy/prompt: waiting for post-response idle (#2)")
-	if timedOut, err := pollUntilIdle(ctx, t, done, opts.ResponseDelayOrDefault()); err != nil {
+	if timedOut, err := pollUntilIdle(ctx, awSessionID, done, opts.ResponseDelayOrDefault()); err != nil {
 		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: post-response idle (#2) timed out")
@@ -106,7 +106,7 @@ func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*age
 	}
 
 	log.Debug().Msg("agy/prompt: waiting for double-check idle (#3)")
-	if timedOut, err := pollUntilIdle(ctx, t, done, opts.ResponseDelayOrDefault()); err != nil {
+	if timedOut, err := pollUntilIdle(ctx, awSessionID, done, opts.ResponseDelayOrDefault()); err != nil {
 		return nil, handleErr(err)
 	} else if timedOut {
 		log.Warn().Msg("agy/prompt: double-check idle (#3) timed out")

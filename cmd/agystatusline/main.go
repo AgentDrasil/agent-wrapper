@@ -108,17 +108,6 @@ func run(data []byte) (string, payload, error) {
 	return res, p, nil
 }
 
-// countActiveSubagents returns the number of subagents that are not idle.
-func countActiveSubagents(subagents []subagent) int {
-	n := 0
-	for _, s := range subagents {
-		if !strings.EqualFold(s.Status, "idle") {
-			n++
-		}
-	}
-	return n
-}
-
 func main() {
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {

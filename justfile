@@ -11,3 +11,6 @@ install:
     go install ./cmd/aw
     go install ./cmd/agystatusline
 
+# Run e2e tests
+e2e-test:
+    E2E_TEST=true go test -v ./...

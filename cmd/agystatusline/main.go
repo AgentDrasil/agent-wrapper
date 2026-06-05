@@ -92,15 +92,15 @@ func run(data []byte) (string, payload, error) {
 		modelName = p.Model.ID
 	}
 
-	res := fmt.Sprintf("state: %s | input_tokens: %d | max: %d | remaining: %s%.1f%%%s | tasks: %d | subagents: %d",
-		p.AgentState,
+	stateUpper := strings.ToUpper(p.AgentState)
+
+	res := fmt.Sprintf("%s | %d/%d (%s%.0f%%%s)",
+		stateUpper,
 		p.ContextWindow.TotalInputTokens,
 		p.ContextWindow.ContextWindowSize,
 		color,
 		p.ContextWindow.RemainingPercentage,
 		ansiReset,
-		len(p.BackgroundTasks),
-		countActiveSubagents(p.Subagents),
 	)
 	if modelName != "" {
 		res += fmt.Sprintf(" | %s", modelName)

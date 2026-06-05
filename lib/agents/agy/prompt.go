@@ -114,9 +114,6 @@ func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*age
 		log.Debug().Msg("agy/prompt: double-check idle reached (#3)")
 	}
 
-	// ── capture the final statusline before exiting ───────────────────────────
-	finalLines := t.Scrollback()
-
 	// ── exit agy cleanly ─────────────────────────────────────────────────────
 	CleanExit(t, done)
 
@@ -133,7 +130,7 @@ func Prompt(ctx context.Context, prompt string, opts agents.PromptOptions) (*age
 	}
 
 	// ── parse statusline for token metadata ───────────────────────────────────
-	inputTokens, maxTokens, remaining := parseStatusLine(finalLines)
+	inputTokens, maxTokens, remaining := parseStatusLineFromSession(awSessionID)
 
 	// ── read the last transcript line ─────────────────────────────────────────
 	lastContent, err := readLastTranscriptContent(sessionID)

@@ -3,6 +3,7 @@ package agy
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,4 +75,29 @@ func TestCompatibility_PromptWithModel(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, promptWithModelResult.SessionID)
 	assert.NotEmpty(t, promptWithModelResult.LastContent)
+}
+
+func TestCompatibility_PromptResume(t *testing.T) {
+	skipIfNotE2E(t)
+
+	tempDir := t.TempDir()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	t.Cleanup(cancel)
+
+	// 1. Start a session by prompting the agent to remember a word
+	promptResult, err := Prompt(ctx, "remember this word: banana", agents.PromptOptions{
+		Dir: tempDir,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, promptResult.SessionID)
+	require.NotEmpty(t, promptResult.LastContent)
+
+	// 2. Resume session by passing the SessionID and asking what the word was
+	resumeResult, err := Prompt(ctx, "what word did I ask you to remember?", agents.PromptOptions{
+		Dir:       tempDir,
+		SessionID: promptResult.SessionID,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, promptResult.SessionID, resumeResult.SessionID)
+	assert.Contains(t, strings.ToLower(resumeResult.LastContent), "banana")
 }

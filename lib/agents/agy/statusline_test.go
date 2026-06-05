@@ -1,68 +1,43 @@
 package agy
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestParseStatusLine(t *testing.T) {
+func TestParseStatusLineFromSession(t *testing.T) {
 	t.Parallel()
+	// Create mock files in the /tmp/agystatusline equivalent structure or override it.
+	// Since parseStatusLineFromSession is hardcoded to /tmp/agystatusline, let's write to it.
+	// Or we can mock the environment/filepath if needed. Let's write to /tmp/agystatusline for real.
+	err := os.MkdirAll("/tmp/agystatusline", 0755)
+	require.NoError(t, err)
 
-	tests := []struct {
-		name          string
-		lines         []string
-		wantInput     int
-		wantMax       int
-		wantRemaining float64
-	}{
-		{
-			name: "standard statusline",
-			lines: []string{
-				"some command output",
-				"state: idle | input_tokens: 88244 | max: 1048576 | remaining: 91.6% | tasks: 0 | subagents: 0",
-			},
-			wantInput:     88244,
-			wantMax:       1048576,
-			wantRemaining: 0.916,
-		},
-		{
-			name: "padded with empty lines at the bottom",
-			lines: []string{
-				"state: idle | input_tokens: 123 | max: 456 | remaining: 80% | tasks: 0 | subagents: 0",
-				"   ",
-				"",
-			},
-			wantInput:     123,
-			wantMax:       456,
-			wantRemaining: 0.8,
-		},
+	sessionID := "test-session-statusline-parse"
+	filePath := filepath.Join("/tmp/agystatusline", sessionID+".json")
 
-		{
-			name:          "no statusline at all",
-			lines:         []string{"just raw logs", "without labels"},
-			wantInput:     0,
-			wantMax:       0,
-			wantRemaining: 0.0,
-		},
-		{
-			name:          "empty scrollback slice",
-			lines:         []string{},
-			wantInput:     0,
-			wantMax:       0,
-			wantRemaining: 0.0,
-		},
-	}
+	content := `{
+		"context_window": {
+			"total_input_tokens": 12345,
+			"context_window_size": 100000,
+			"remaining_percentage": 87.654
+		}
+	}`
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			gotInput, gotMax, gotRemaining := parseStatusLine(tt.lines)
-			assert.Equal(t, tt.wantInput, gotInput)
-			assert.Equal(t, tt.wantMax, gotMax)
-			assert.InDelta(t, tt.wantRemaining, gotRemaining, 1e-9)
-		})
-	}
+	err = os.WriteFile(filePath, []byte(content), 0644)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = os.Remove(filePath)
+	})
+
+	gotInput, gotMax, gotRemaining := parseStatusLineFromSession(sessionID)
+	assert.Equal(t, 12345, gotInput)
+	assert.Equal(t, 100000, gotMax)
+	assert.InDelta(t, 0.87654, gotRemaining, 1e-9)
 }
 
 func TestExtractSessionID(t *testing.T) {

@@ -1,53 +1,35 @@
 package agy
 
 import (
-	"regexp"
-	"strconv"
-	"strings"
+	"encoding/json"
+	"os"
+	"path/filepath"
 )
 
-var (
-	reInputTokens = regexp.MustCompile(`(?i)input_tokens:\s*(\d+)`)
-	reMaxTokens   = regexp.MustCompile(`(?i)\bmax:\s*(\d+)`)
-	reRemaining   = regexp.MustCompile(`(?i)remaining:\s*([0-9.]+%?)`)
-)
-
-// parseStatusLine extracts inputTokens, maxTokens, and remaining from the
-// last non-empty line of the terminal scrollback. Returns zero values on parse failure.
-func parseStatusLine(lines []string) (inputTokens, maxTokens int, remaining float64) {
-	if len(lines) == 0 {
+// parseStatusLineFromSession reads the statusline JSON for the given session ID from
+// /tmp/agystatusline/<sessionID>.json, extracts the inputTokens, maxTokens, and remaining.
+func parseStatusLineFromSession(sessionID string) (inputTokens, maxTokens int, remaining float64) {
+	if sessionID == "" {
 		return
 	}
-	var last string
-	for i := len(lines) - 1; i >= 0; i-- {
-		trimmed := strings.TrimSpace(lines[i])
-		if trimmed != "" {
-			last = trimmed
-			break
-		}
-	}
-	if last == "" {
+	filePath := filepath.Join("/tmp/agystatusline", sessionID+".json")
+	data, err := os.ReadFile(filePath)
+	if err != nil {
 		return
 	}
-
-	if m := reInputTokens.FindStringSubmatch(last); m != nil {
-		inputTokens, _ = strconv.Atoi(m[1])
+	type contextWindow struct {
+		TotalInputTokens    int     `json:"total_input_tokens"`
+		ContextWindowSize   int     `json:"context_window_size"`
+		RemainingPercentage float64 `json:"remaining_percentage"`
 	}
-	if m := reMaxTokens.FindStringSubmatch(last); m != nil {
-		maxTokens, _ = strconv.Atoi(m[1])
+	type payload struct {
+		ContextWindow contextWindow `json:"context_window"`
 	}
-	if m := reRemaining.FindStringSubmatch(last); m != nil {
-		s := strings.TrimSpace(m[1])
-		hasPct := strings.HasSuffix(s, "%")
-		s = strings.TrimSuffix(s, "%")
-		val, err := strconv.ParseFloat(s, 64)
-		if err == nil {
-			if hasPct {
-				remaining = val / 100.0
-			} else {
-				remaining = val
-			}
-		}
+	var p payload
+	if err := json.Unmarshal(data, &p); err == nil {
+		inputTokens = p.ContextWindow.TotalInputTokens
+		maxTokens = p.ContextWindow.ContextWindowSize
+		remaining = p.ContextWindow.RemainingPercentage / 100.0
 	}
 	return
 }

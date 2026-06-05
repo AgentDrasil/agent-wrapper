@@ -28,7 +28,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 91.58
 				}
 			}`,
-			wantContain: []string{"state: idle", "input_tokens: 88244", "max: 200000", "remaining: ", "91.6%", ansiGreen, "tasks: 0", "subagents: 0"},
+			wantContain: []string{"IDLE | 88244/200000 (", "92%", ansiGreen},
 		},
 		{
 			name: "thinking with medium remaining (yellow)",
@@ -40,7 +40,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 52.0
 				}
 			}`,
-			wantContain: []string{"state: thinking", "input_tokens: 500000", "max: 1000000", "remaining: ", "52.0%", ansiYellow, "tasks: 0", "subagents: 0"},
+			wantContain: []string{"THINKING | 500000/1000000 (", "52%", ansiYellow},
 		},
 		{
 			name: "working with low remaining (red)",
@@ -52,7 +52,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 5.5
 				}
 			}`,
-			wantContain: []string{"state: working", "input_tokens: 990000", "max: 1048576", "remaining: ", "5.5%", ansiRed, "tasks: 0", "subagents: 0"},
+			wantContain: []string{"WORKING | 990000/1048576 (", "6%", ansiRed},
 		},
 		{
 			name: "exactly 80 percent remaining (green)",
@@ -64,7 +64,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 80.0
 				}
 			}`,
-			wantContain: []string{"state: tool_use", "input_tokens: 200000", "max: 250000", "remaining: ", "80.0%", ansiGreen, "tasks: 0", "subagents: 0"},
+			wantContain: []string{"TOOL_USE | 200000/250000 (", "80%", ansiGreen},
 		},
 		{
 			name: "exactly 50 percent remaining (yellow)",
@@ -76,7 +76,7 @@ func TestRun(t *testing.T) {
 					"remaining_percentage": 50.0
 				}
 			}`,
-			wantContain: []string{"state: initializing", "input_tokens: 524288", "max: 1048576", "remaining: ", "50.0%", ansiYellow, "tasks: 0", "subagents: 0"},
+			wantContain: []string{"INITIALIZING | 524288/1048576 (", "50%", ansiYellow},
 		},
 		{
 			name: "working with background tasks",
@@ -92,7 +92,7 @@ func TestRun(t *testing.T) {
 					{"name": "test",  "status": "running", "index": 2}
 				]
 			}`,
-			wantContain: []string{"state: working", "tasks: 2", "subagents: 0"},
+			wantContain: []string{"WORKING | 100000/1048576 (", "90%"},
 		},
 		{
 			name: "thinking with active subagents",
@@ -108,7 +108,7 @@ func TestRun(t *testing.T) {
 					{"name": "coder",    "role": "Coder",      "status": "idle"}
 				]
 			}`,
-			wantContain: []string{"state: thinking", "tasks: 0", "subagents: 1"},
+			wantContain: []string{"THINKING | 100000/1048576 (", "90%"},
 		},
 		{
 			name: "idle with all subagents idle",
@@ -124,7 +124,7 @@ func TestRun(t *testing.T) {
 					{"name": "coder",    "role": "Coder",      "status": "idle"}
 				]
 			}`,
-			wantContain: []string{"state: idle", "tasks: 0", "subagents: 0"},
+			wantContain: []string{"IDLE | 100000/1048576 (", "90%"},
 		},
 		{
 			name: "idle with model display name",
@@ -140,7 +140,7 @@ func TestRun(t *testing.T) {
 					"display_name": "Gemini 1.5 Pro"
 				}
 			}`,
-			wantContain: []string{"state: idle", "tasks: 0", "subagents: 0", "Gemini 1.5 Pro"},
+			wantContain: []string{"IDLE | 100000/1048576 (", "90%", "Gemini 1.5 Pro"},
 		},
 		{
 			name: "idle with model id only",
@@ -155,7 +155,7 @@ func TestRun(t *testing.T) {
 					"id": "gemini-1.5-flash"
 				}
 			}`,
-			wantContain: []string{"state: idle", "tasks: 0", "subagents: 0", "gemini-1.5-flash"},
+			wantContain: []string{"IDLE | 100000/1048576 (", "90%", "gemini-1.5-flash"},
 		},
 		{
 			name:    "invalid JSON",

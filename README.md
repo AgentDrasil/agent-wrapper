@@ -1,5 +1,8 @@
 # agent-wrapper
 
+> [!CAUTION]
+> This repo is archived. Implementation has been migrated to [asgard](https://github.com/AgentDrasil/asgard).
+
 A command-line wrapper to run TUI (Terminal User Interface) coding agents—specifically `claude-code` and `antigravity-cli` (`agy`) in a non-interactive CLI mode.
 
 ## Why?
